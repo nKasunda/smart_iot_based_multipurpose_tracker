@@ -4,10 +4,16 @@ import DashboardHeader from "@/components/DashboardHeader";
 import GoogleMapView from "@/components/DashboardSections/GoogleMapView";
 import Overview from "@/components/DashboardSections/Overview"; // keep this
 
-// Dummy section components
-function LiveMap() {
-  return <GoogleMapView />;
+
+export function LiveMap() {
+  return (
+    <div style={{ flex:1, display: "flex", flexDirection: "column" }}>
+      <GoogleMapView fullScreen={true} />
+    </div>
+  );
 }
+
+// Dummy section components
 function AssetList() {
   return <div>📋 Asset List Content</div>;
 }
