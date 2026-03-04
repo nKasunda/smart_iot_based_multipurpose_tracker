@@ -12,7 +12,7 @@ module.exports = {
      trackerId: {
        type: Sequelize.STRING,
        allowNull: false,
-       unique: true, // ✅ add uniqueness here
+       unique: true, // dd uniqueness here
       },
       assigned: {
         type: Sequelize.BOOLEAN

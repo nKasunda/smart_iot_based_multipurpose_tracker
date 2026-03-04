@@ -17,7 +17,7 @@ export default function GoogleMapView({ fullScreen = false }) {
   useEffect(() => {
     const fetchTrackers = async () => {
       try {
-        const trackerRes = await axios.get("http://192.168.7.219:5000/api/tracker");
+        const trackerRes = await axios.get("http://192.168.151.219:5000/api/tracker");
         const trackerList = trackerRes.data;
 
         const newData = {};
@@ -27,7 +27,7 @@ export default function GoogleMapView({ fullScreen = false }) {
           const tracker = trackerList[i];
           try {
             const res = await axios.get(
-              `http://192.168.7.219:5000/api/tracker/${tracker.trackerId}/history`
+              `http://192.168.151.219:5000/api/tracker/${tracker.trackerId}/history`
             );
             const locations = res.data;
 

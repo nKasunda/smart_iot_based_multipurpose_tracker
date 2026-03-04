@@ -1,8 +1,8 @@
-const { Tracker, Location } = require("../models");
+const { Tracker, Location, Alert, Trip, Asset } = require("../models");
 const { Op } = require("sequelize");
 
 /**
- * UPDATE tracker location (heartbeat)
+ * Updating tracker location (heartbeat)
  */
 exports.updateTrackerLocation = async (req, res) => {
   try {
@@ -12,9 +12,9 @@ exports.updateTrackerLocation = async (req, res) => {
       return res.status(400).json({ message: "Missing fields" });
     }
 
-    // Ensure ONE tracker row per trackerId
+    // Upserting Tracker using device_uid
     await Tracker.upsert({
-      trackerId,
+      device_uid: trackerId,
       battery,
       signalStrength,
       network,
@@ -22,9 +22,9 @@ exports.updateTrackerLocation = async (req, res) => {
       lastSeen: new Date(),
     });
 
-    // Save location history
+    // Saving Location history
     await Location.create({
-      trackerId,
+      tracker_id: trackerId,
       lat,
       lng,
       timestamp: new Date(),
@@ -38,14 +38,14 @@ exports.updateTrackerLocation = async (req, res) => {
 };
 
 /**
- * GET tracker history
+ * GETing tracker location history
  */
 exports.getTrackerHistory = async (req, res) => {
   try {
     const { trackerId } = req.params;
 
     const locations = await Location.findAll({
-      where: { trackerId },
+      where: { tracker_id: trackerId },
       order: [["timestamp", "ASC"]],
     });
 
@@ -57,7 +57,7 @@ exports.getTrackerHistory = async (req, res) => {
 };
 
 /**
- * GET dashboard stats (TIME-AWARE)
+ * GETing dashboard stats (time-aware)
  */
 exports.getDashboardStats = async (req, res) => {
   try {
@@ -79,7 +79,7 @@ exports.getDashboardStats = async (req, res) => {
       },
     });
 
-    const inTransit = activeNow; // same definition for now
+    const inTransit = activeNow; // can refine later if needed
 
     res.json({
       totalAssets,
@@ -93,11 +93,14 @@ exports.getDashboardStats = async (req, res) => {
   }
 };
 
+/**
+ * GETing all active trackers
+ */
 exports.getActiveTrackers = async (req, res) => {
   try {
     const trackers = await Tracker.findAll({
-      attributes: ["trackerId", "status", "lastSeen"],
-      order: [["trackerId", "ASC"]],
+      attributes: ["device_uid", "status", "lastSeen"],
+      order: [["device_uid", "ASC"]],
     });
 
     res.json(trackers);
@@ -107,19 +110,19 @@ exports.getActiveTrackers = async (req, res) => {
   }
 };
 
-
 /**
- * GET recent alerts
+ * GETing recent alerts
  */
 exports.getRecentAlerts = async (req, res) => {
   try {
+    // For demo, treat last 10 locations as alerts
     const recentLocations = await Location.findAll({
       order: [["timestamp", "DESC"]],
       limit: 10,
     });
 
     const alerts = recentLocations.map((loc) => ({
-      device: loc.trackerId,
+      device: loc.tracker_id,
       type: "Location Update",
       time: loc.timestamp,
     }));

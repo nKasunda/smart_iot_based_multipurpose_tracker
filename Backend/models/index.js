@@ -1,6 +1,6 @@
 'use strict';
 
-const fs = require('fs');
+const fs = require('fs');   // file system module for reading model files
 const path = require('path');
 const Sequelize = require('sequelize');
 const process = require('process');
@@ -9,15 +9,15 @@ const env = process.env.NODE_ENV || 'development';
 const config = require(__dirname + '/../config/config.json')[env];
 const db = {};
 
-let sequelize;
+let sequelize;  // initializing Sequelize instance based on config
 if (config.use_env_variable) {
   sequelize = new Sequelize(process.env[config.use_env_variable], config);
 } else {
   sequelize = new Sequelize(config.database, config.username, config.password, config);
 }
 
-fs
-  .readdirSync(__dirname)
+// Importing all model files in the directory
+fs.readdirSync(__dirname)
   .filter(file => {
     return (
       file.indexOf('.') !== 0 &&
@@ -31,12 +31,14 @@ fs
     db[model.name] = model;
   });
 
+// Calling associate() on all models to setup relationships
 Object.keys(db).forEach(modelName => {
   if (db[modelName].associate) {
     db[modelName].associate(db);
   }
 });
 
+// Adding Sequelize instances to export
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;
 

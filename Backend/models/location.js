@@ -10,19 +10,27 @@ module.exports = (sequelize, DataTypes) => {
      * The `models/index` file will call this method automatically.
      */
     static associate(models) {
-      // define association here
-        // Location belongs to Tracker
-      Location.belongsTo(models.Tracker, { foreignKey: 'trackerId' });
+      Location.associate = function(models) {   // defining association with other models
+        Location.belongsTo(models.Tracker, { foreignKey: 'tracker_id', targetKey: 'device_uid' });
+        Location.belongsTo(models.Trip, { foreignKey: 'trip_id' });  // optional
+      };
     }
   }
   Location.init({
-    trackerId: DataTypes.STRING,
+    tracker_id: {                   //matching Tracker.device_uid
+      type: DataTypes.STRING,
+      allowNull: false
+  },
+  
     lat: DataTypes.FLOAT,
     lng: DataTypes.FLOAT,
-    timestamp: DataTypes.DATE
-  }, {
-    sequelize,
-    modelName: 'Location',
+    recorded_at: DataTypes.DATE,    // renamed
+    heading: DataTypes.FLOAT,
+    altitude: DataTypes.FLOAT,
+    accuracy: DataTypes.FLOAT,
+}, {
+   sequelize,
+   modelName: 'Location',
   });
-  return Location;
-};
+  return Location
+}
