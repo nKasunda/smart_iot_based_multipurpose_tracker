@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 
+
 const sequelize = require("./models").sequelize;
 const trackerRoutes = require("./routes/tracker.routes");
 
