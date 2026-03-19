@@ -133,3 +133,44 @@ exports.getRecentAlerts = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+//receiving tracker data from devices (e.g new endpoint for IoT data ingestion)
+exports.receiveTrackerData = async (req, res) => {
+  try {
+    const { device_uid, lat, lng, battery } = req.body;
+
+    // 1. Find tracker
+    let tracker = await db.Trackers.findOne({
+      where: { device_uid }
+    });
+
+    // 2. If not exists, create new tracker with device_uid as primary identifier
+    if (!tracker) {
+      tracker = await db.Trackers.create({
+        device_uid,
+        battery,
+        status: "active",
+        lastSeen: new Date()
+      });
+    } else {
+      // 3. Update tracker info (battery, last seen)
+      await tracker.update({
+        battery,
+        lastSeen: new Date()
+      });
+    }
+
+    // 4. Save location history
+    await db.Locations.create({
+      tracker_id: device_uid,
+      lat,
+      lng,
+      recorded_at: new Date()
+    });
+
+    res.status(200).json({ message: "Data received" });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to process data" });
+  }
+};
