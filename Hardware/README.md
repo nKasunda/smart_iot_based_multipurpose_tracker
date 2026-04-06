@@ -151,7 +151,23 @@ Provide a stable and sufficient power supply for reliable operation
 
 ## [12] DIAGRAMS & REFERENCES
 
-(Add wiring diagrams, module images, and test outputs here)
+### [12.1] Circuit Diagram
+
+The diagram below shows the hardware connections between the ESP32, A9G module, and the TP4056 battery/charging unit.
+
+Hardware/Circuit Connection/TRACKER COMPONENT IMAGE CIRCUIT.png
+
+**Notes on the wiring:**
+* **UART Connections (Direct)**
+  * ESP32 GPIO16 (RX) ← A9G TX
+  * ESP32 GPIO17 (TX) → A9G RX
+* **Power Supply**
+  * TP4056 OUT+ → ESP32 VIN and A9G VCC (parallel connection)
+  * TP4056 OUT- → ESP32 GND and A9G GND
+  * A common GND for stable UART communication
+* **Battery**
+  * 3.7V Li-ion battery connected to TP4056 B+/B-
+  * Charging module provides regulated power to devices
 
 ---
 
