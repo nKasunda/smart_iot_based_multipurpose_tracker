@@ -155,7 +155,8 @@ Provide a stable and sufficient power supply for reliable operation
 
 The diagram below shows the hardware connections between the ESP32, A9G module, and the TP4056 battery/charging unit.
 
-Hardware/Circuit Connection/TRACKER COMPONENT IMAGE CIRCUIT.png
+<img width="960" height="720" alt="TRACKER COMPONENT IMAGE CIRCUIT" src="https://github.com/user-attachments/assets/88cebcc8-085b-4c11-9709-e3d14735b5ab" />
+
 
 **Notes on the wiring:**
 * **UART Connections (Direct)**
