@@ -7,6 +7,7 @@ const authRouter = require('./routes/auth');
 const usersRouter = require('./routes/users');
 const { verifyToken, adminOnly } = require('./middleware/auth');
 const devicesRouter = require('./routes/devices');
+const locationRouter = require('./routes/location');
 
 const app = express();
 app.use(express.json());
@@ -17,6 +18,7 @@ app.use(express.json());
 app.use('/auth', authRouter);
 app.use('/users', verifyToken, adminOnly, usersRouter);
 app.use('/devices', verifyToken, devicesRouter);
+app.use('/location', verifyToken, locationRouter);
 
 // Root route
 app.get('/', (req, res) => res.json({ message: 'IoT Tracking API is running.' }));

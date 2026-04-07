@@ -33,15 +33,15 @@ router.get('/', async (req, res) => {
 // ----------------------------
 router.post('/', adminOnly, async (req, res) => {
   try {
-    const { name, type, user_id } = req.body;
+    const { name, user_id } = req.body;
 
-    if (!name || !type || !user_id) {
+    if (!name || !user_id) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
     const result = await pool.query(
-      'INSERT INTO devices (name, type, user_id) VALUES ($1, $2, $3) RETURNING *',
-      [name, type, user_id]
+      'INSERT INTO devices (name, user_id) VALUES ($1, $2) RETURNING *',
+      [name,user_id]
     );
 
     res.status(201).json(result.rows[0]);
@@ -61,6 +61,49 @@ router.delete('/:id', adminOnly, async (req, res) => {
     await pool.query('DELETE FROM devices WHERE id = $1', [id]);
 
     res.json({ message: 'Device deleted successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+//--------------------------------------
+//GET: Check device status
+//--------------------------------------
+
+router.get('/status/:device_id', async (req, res) => {
+  try {
+    const { device_id } = req.params;
+
+    const result = await pool.query(
+      'SELECT id, last_seen_at FROM devices WHERE id = $1',
+      [device_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+
+    const device = result.rows[0];
+
+    let status = 'offline';
+
+    if (device.last_seen_at) {
+      const lastSeen = new Date(device.last_seen_at);
+      const now = new Date();
+
+      const diffSeconds = (now - lastSeen) / 1000;
+
+      if (diffSeconds <= 120) {
+        status = 'online';
+      }
+    }
+
+    res.json({
+      device_id,
+      status,
+      last_seen_at: device.last_seen_at
+    });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
