@@ -1,53 +1,32 @@
-This is the backend for our smart iot based multipurpose tracker
- 
- # IoT Tracking System — Backend API
+# IoT Tracking Backend API
 
-A backend API built with **Node.js** and **Express**, connected to a **PostgreSQL** database as part of a smart IoT-based multipurpose tracking system.
+A backend REST API built with **Node.js** and **Express**, connected to a **PostgreSQL** database for a smart IoT multipurpose tracking system. Supports secure authentication, device management, GPS tracking, and alerts.
 
 ---
 
-## Progress
+## Features
 
-- ✅ Node.js project initialized with Express
-- ✅ PostgreSQL database (`iot_tracking`) created in pgAdmin 4
-- ✅ Database schema implemented with 6 tables
-- ✅ Express server successfully connected to PostgreSQL
-- ✅ JWT authentication implemented (register and login)
-- ✅ Role-based middleware (admin and client roles)
-- 🔄 Devices routes (in progress)
-- 🔄 MQTT broker integration (in progress)
-- 🔄 Location routes (in progress)
-- 🔄 Socket.io realtime updates (in progress)
-- 🔄 Alerts routes (in progress)
+- 🔐 User registration & login (JWT authentication)
+- 👥 Role-based access control (`admin`, `user`)
+- 📡 Device management (CRUD + online/offline status)
+- 📍 Location tracking (save, latest, full history)
+- 🔔 Alerts *(planned: offline, low battery, abnormal behavior)*
+
+> **Note:** Geofences, MQTT, and WebSocket features have been removed to focus on core tracking functionality.
 
 ---
 
 ## Tech Stack
 
-| Layer         | Technology         |
-|---------------|--------------------|
-| Runtime       | Node.js            |
-| Framework     | Express.js         |
-| Database      | PostgreSQL 18      |
-| DB Client     | node-postgres (pg) |
-| Config        | dotenv             |
-| Auth          | jsonwebtoken       |
-| Encryption    | bcryptjs           |
-| Realtime      | Socket.io          |
-| IoT Messaging | MQTT (Mosquitto)   |
-
----
-
-## Database Schema
-
-| Table              | Description                                         |
-|--------------------|-----------------------------------------------------|
-| `users`            | System users and device owners                      |
-| `devices`          | Registered ESP32 + GSM tracker units                |
-| `location_logs`    | GPS coordinate stream received from devices         |
-| `geofences`        | Circular boundary zones defined by users            |
-| `geofence_devices` | Many-to-many relationship between devices and zones |
-| `alerts`           | Geofence, offline, and low battery events           |
+| Layer | Technology |
+|---|---|
+| Runtime | Node.js |
+| Framework | Express.js |
+| Database | PostgreSQL 18 |
+| DB Client | node-postgres (`pg`) |
+| Config | dotenv |
+| Auth | jsonwebtoken |
+| Encryption | bcryptjs |
 
 ---
 
@@ -56,21 +35,16 @@ A backend API built with **Node.js** and **Express**, connected to a **PostgreSQ
 ```
 backend/
 ├── middleware/
-│   └── auth.js           ← JWT verification and role checks
+│   └── auth.js           # JWT verification & role checks
 ├── routes/
-│   ├── auth.js           ← register and login
-│   ├── users.js          ← user management
-│   ├── devices.js        ← tracker management (coming soon)
-│   ├── locations.js      ← GPS history (coming soon)
-│   ├── geofences.js      ← geofence zones (coming soon)
-│   └── alerts.js         ← warnings and alerts (coming soon)
-├── mqtt/
-│   └── client.js         ← MQTT broker subscriber (coming soon)
-├── socket/
-│   └── index.js          ← Socket.io live updates (coming soon)
-├── db.js                 ← PostgreSQL connection pool
-├── index.js              ← Express server entry point
-├── .env                  ← environment variables (not committed)
+│   ├── auth.js           # Register & login
+│   ├── users.js          # User management (admin only)
+│   ├── devices.js        # Device management
+│   ├── location.js       # GPS tracking & history
+│   └── alerts.js         # Planned
+├── db.js                 # PostgreSQL connection pool
+├── index.js              # Express server entry point
+├── .env                  # Environment variables (not committed)
 ├── .gitignore
 └── package.json
 ```
@@ -81,34 +55,48 @@ backend/
 
 ### Prerequisites
 
-- Node.js v14 or higher
+- Node.js v14+
 - PostgreSQL 18
-- Mosquitto MQTT broker — [mosquitto.org/download](https://mosquitto.org/download/)
 
 ### Installation
 
-1. Clone the repository and install dependencies:
-   ```bash
-   git clone https://github.com/yourusername/iot-tracking-api.git
-   cd iot-tracking-api
-   npm install
-   ```
+```bash
+git clone https://github.com/yourusername/iot-tracking-api.git
+cd iot-tracking-api
+npm install
+```
 
-2. Create a `.env` file in the project root:
-   ```env
-   DB_HOST=localhost
-   DB_PORT=5432
-   DB_NAME=iot_tracking
-   DB_USER=postgres
-   DB_PASSWORD=yourpassword
-   PORT=3000
-   JWT_SECRET=your_secret_key_here
-   ```
+### Environment Variables
 
-3. Start the server:
-   ```bash
-   node index.js
-   ```
+Create a `.env` file in the root directory:
+
+```env
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=iot_tracking
+DB_USER=postgres
+DB_PASSWORD=yourpassword
+PORT=3000
+JWT_SECRET=your_secret_key_here
+```
+
+| Variable | Description |
+|---|---|
+| `DB_HOST` | PostgreSQL host |
+| `DB_PORT` | PostgreSQL port |
+| `DB_NAME` | Database name |
+| `DB_USER` | PostgreSQL user |
+| `DB_PASSWORD` | PostgreSQL password |
+| `PORT` | Express server port |
+| `JWT_SECRET` | Secret key used to sign JWT tokens |
+
+### Start the Server
+
+```bash
+node index.js
+```
+
+Server runs at `http://localhost:3000`.
 
 ---
 
@@ -116,82 +104,75 @@ backend/
 
 All protected routes require a Bearer token in the `Authorization` header:
 
-```http
+```
 Authorization: Bearer <token>
 ```
 
-Tokens are obtained by logging in via `POST /auth/login`. Two roles exist:
+### Roles
 
-| Role     | Permissions                                      |
-|----------|--------------------------------------------------|
-| `admin`  | Track devices, assign clients, manage everything |
-| `client` | View their assigned tracker location only        |
-
-### Auth endpoints
-
-| Method | Endpoint         | Description         | Access |
-|--------|------------------|---------------------|--------|
-| POST   | `/auth/register` | Create a new account| Public |
-| POST   | `/auth/login`    | Login and get token | Public |
-
-#### Example — Register
-
-```http
-POST /auth/register
-Content-Type: application/json
-
-{
-  "name": "Nelson Kasunda",
-  "email": "nelson@example.com",
-  "phone": "0881234567",
-  "password": "secret123",
-  "role": "admin"
-}
-```
-
-#### Example — Login
-
-```http
-POST /auth/login
-Content-Type: application/json
-
-{
-  "email": "nelson@example.com",
-  "password": "secret123"
-}
-```
-
-Response:
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "id": "a1b2c3d4-...",
-    "name": "Nelson Kasunda",
-    "email": "nelson@example.com",
-    "role": "admin"
-  }
-}
-```
+| Role | Permissions |
+|---|---|
+| `admin` | Manage users, devices, and tracking data |
+| `user` | Access only assigned device locations |
 
 ---
 
-## Environment Variables
+## API Reference
 
-| Variable      | Description                        |
-|---------------|------------------------------------|
-| `DB_HOST`     | PostgreSQL host (default localhost) |
-| `DB_PORT`     | PostgreSQL port (default 5432)      |
-| `DB_NAME`     | Database name                       |
-| `DB_USER`     | Database user                       |
-| `DB_PASSWORD` | Database password                   |
-| `PORT`        | Express server port (default 3000)  |
-| `JWT_SECRET`  | Secret key used to sign JWT tokens  |
+### Auth
+
+| Method | Endpoint | Description | Access |
+|---|---|---|---|
+| `POST` | `/auth/register` | Register a new user | Public |
+| `POST` | `/auth/login` | Login & receive JWT | Public |
+
+### Users
+
+| Method | Endpoint | Description | Access |
+|---|---|---|---|
+| `GET` | `/users` | Get all users | Admin |
+
+### Devices
+
+| Method | Endpoint | Description | Access |
+|---|---|---|---|
+| `POST` | `/devices` | Register a new device | Admin |
+| `GET` | `/devices` | Get all devices (admins see all, users see own) | Authenticated |
+| `GET` | `/devices/:id` | Get a specific device | Authenticated |
+| `DELETE` | `/devices/:id` | Delete a device | Admin |
+| `GET` | `/devices/status/:device_id` | Check online/offline status | Authenticated |
+
+> A device is considered **online** if `last_seen_at` is within the last **120 seconds**.
+
+### Locations
+
+| Method | Endpoint | Description | Access |
+|---|---|---|---|
+| `POST` | `/location` | Save a device GPS location | Authenticated |
+| `GET` | `/location/latest/:device_id` | Get the latest location | Authenticated |
+| `GET` | `/location/:device_id` | Get full location history | Authenticated |
+
+### Alerts *(Planned)*
+
+- Device offline
+- Low battery
+- Abnormal behavior
+
+---
+
+## Project Focus
+
+This backend emphasizes core tracking capabilities:
+
+- ✅ Secure authentication & authorization
+- ✅ Device management (CRUD + online/offline)
+- ✅ Reliable GPS tracking & history storage
+- ✅ Basic alert system for critical events
 
 ---
 
 ## Author
 
-| Name                  | Student ID       |
-|-----------------------|------------------|
-| Kuthula Zinga         | BSC/COM/NE/05/22 |
+| Name | Student ID |
+|---|---|
+| Kuthula Zinga | BSC/COM/NE/05/22 |
