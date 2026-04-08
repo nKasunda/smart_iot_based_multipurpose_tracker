@@ -1,14 +1,7 @@
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import {
-  FaEnvelope,
-  FaEye,
-  FaEyeSlash,
-  FaLock,
-  FaPhoneAlt,
-  FaUser,
-} from "react-icons/fa";
+import { FaEnvelope, FaEye, FaEyeSlash, FaLock } from "react-icons/fa";
 
 const palette = {
   primary: "#123a63",
@@ -25,41 +18,16 @@ const palette = {
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
 
-const fieldConfig = [
-  {
-    id: "name",
-    label: "Full Name",
-    type: "text",
-    placeholder: "Enter your full name",
-    icon: FaUser,
-  },
-  {
-    id: "email",
-    label: "Email Address",
-    type: "email",
-    placeholder: "Enter your email address",
-    icon: FaEnvelope,
-  },
-  {
-    id: "phone",
-    label: "Phone Number",
-    type: "tel",
-    placeholder: "Enter your phone number",
-    icon: FaPhoneAlt,
-  },
-];
-
-function SignInForm({ role = "client", portalName = "Client Portal" }) {
+function LoginForm({ role = "client", portalName = "Client" }) {
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [focusedInput, setFocusedInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const router = useRouter();
 
-  const loginHref = useMemo(
-    () => (role === "admin" ? "/AdminLogin" : "/ClientLogin"),
+  const registerHref = useMemo(
+    () => (role === "admin" ? "/AdminSignIn" : "/ClientSignIn"),
     [role]
   );
 
@@ -73,63 +41,48 @@ function SignInForm({ role = "client", portalName = "Client Portal" }) {
     setSuccessMessage("");
 
     const formData = new FormData(e.currentTarget);
-    const name = formData.get("name")?.toString().trim() || "";
     const email = formData.get("email")?.toString().trim() || "";
-    const phone = formData.get("phone")?.toString().trim() || "";
     const password = formData.get("password")?.toString() || "";
-    const confirmPassword = formData.get("confirmPassword")?.toString() || "";
-
-    if (password !== confirmPassword) {
-      setErrorMessage("Passwords do not match.");
-      setLoading(false);
-      return;
-    }
-
-    if (password.length < 6) {
-      setErrorMessage("Password should be at least 6 characters long.");
-      setLoading(false);
-      return;
-    }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          name,
-          email,
-          phone,
-          password,
-          role,
-        }),
+        body: JSON.stringify({ email, password }),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || "Unable to create account.");
+        throw new Error(result.error || "Unable to sign in.");
+      }
+
+      const userRole = result.user?.role;
+      const isAdmin = userRole === "admin";
+      const isClient = userRole === "user" || userRole === "client";
+
+      if (role === "admin" && !isAdmin) {
+        throw new Error("This account does not have administrator access.");
+      }
+
+      if (role === "client" && !isClient) {
+        throw new Error("This account does not have client access.");
       }
 
       if (typeof window !== "undefined") {
-        localStorage.setItem(
-          "tracker_last_registered_user",
-          JSON.stringify({
-            name,
-            email,
-            role: result.role || role,
-          })
-        );
+        localStorage.setItem("tracker_token", result.token);
+        localStorage.setItem("tracker_user", JSON.stringify(result.user));
       }
 
-      setSuccessMessage("Account created successfully. Redirecting to sign in...");
-      e.currentTarget.reset();
+      setSuccessMessage("Login successful. Redirecting...");
+
       setTimeout(() => {
-        router.push(loginHref);
-      }, 900);
+        router.push(isAdmin ? "/Dashboard" : "/ClientDashboard");
+      }, 700);
     } catch (error) {
-      console.error("Registration error:", error.message);
+      console.error("Login error:", error.message);
       setErrorMessage(error.message);
     } finally {
       setLoading(false);
@@ -140,50 +93,38 @@ function SignInForm({ role = "client", portalName = "Client Portal" }) {
     <form onSubmit={handleSubmit} className="formCard">
       <div className="headerBlock">
         <span className="eyebrow">{portalName}</span>
-        <h2>Create your account</h2>
+        <h2>Sign in to continue</h2>
         <p className="intro">
-          Enter your details below to set up access to the tracker workspace.
+          Enter your email and password to access your dashboard.
         </p>
       </div>
 
       <div className="sectionCard">
         <div className="sectionHeader">
-          <h3>Personal Details</h3>
-          <span>Required information</span>
+          <h3>Account Access</h3>
+          <span>Secure sign in</span>
         </div>
 
-        <div className="grid">
-          {fieldConfig.map(({ id, label, type, placeholder, icon: Icon }) => (
-            <label
-              key={id}
-              htmlFor={id}
-              className={`field ${id === "phone" ? "fieldFull" : ""}`}
-            >
-              <span>{label}</span>
-              <div className="inputWrap">
-                <Icon className="fieldIcon" style={{ color: getAccent(id) }} />
-                <input
-                  id={id}
-                  name={id}
-                  type={type}
-                  placeholder={placeholder}
-                  onFocus={() => setFocusedInput(id)}
-                  onBlur={() => setFocusedInput("")}
-                  required
-                />
-              </div>
-            </label>
-          ))}
-        </div>
-      </div>
+        <div className="stack">
+          <label htmlFor="email" className="field">
+            <span>Email Address</span>
+            <div className="inputWrap">
+              <FaEnvelope
+                className="fieldIcon"
+                style={{ color: getAccent("email") }}
+              />
+              <input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="Enter your email address"
+                onFocus={() => setFocusedInput("email")}
+                onBlur={() => setFocusedInput("")}
+                required
+              />
+            </div>
+          </label>
 
-      <div className="sectionCard">
-        <div className="sectionHeader">
-          <h3>Security</h3>
-          <span>Choose a strong password</span>
-        </div>
-
-        <div className="grid">
           <label htmlFor="password" className="field">
             <span>Password</span>
             <div className="inputWrap">
@@ -195,7 +136,7 @@ function SignInForm({ role = "client", portalName = "Client Portal" }) {
                 id="password"
                 name="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="Create a password"
+                placeholder="Enter your password"
                 onFocus={() => setFocusedInput("password")}
                 onBlur={() => setFocusedInput("")}
                 required
@@ -210,37 +151,6 @@ function SignInForm({ role = "client", portalName = "Client Portal" }) {
               </button>
             </div>
           </label>
-
-          <label htmlFor="confirmPassword" className="field">
-            <span>Confirm Password</span>
-            <div className="inputWrap">
-              <FaLock
-                className="fieldIcon"
-                style={{ color: getAccent("confirmPassword") }}
-              />
-              <input
-                id="confirmPassword"
-                name="confirmPassword"
-                type={showConfirmPassword ? "text" : "password"}
-                placeholder="Confirm your password"
-                onFocus={() => setFocusedInput("confirmPassword")}
-                onBlur={() => setFocusedInput("")}
-                required
-              />
-              <button
-                type="button"
-                className="toggleButton"
-                onClick={() => setShowConfirmPassword((value) => !value)}
-                aria-label={
-                  showConfirmPassword
-                    ? "Hide confirm password"
-                    : "Show confirm password"
-                }
-              >
-                {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
-              </button>
-            </div>
-          </label>
         </div>
       </div>
 
@@ -250,19 +160,19 @@ function SignInForm({ role = "client", portalName = "Client Portal" }) {
       ) : null}
 
       <button type="submit" className="submitButton" disabled={loading}>
-        {loading ? <span className="spinner" /> : "Create Account"}
+        {loading ? <span className="spinner" /> : "Sign In"}
       </button>
 
       <div className="footerRow">
-        <span>Already have an account?</span>
-        <Link href={loginHref} className="footerLink">
-          Sign in here
+        <span>Need an account?</span>
+        <Link href={registerHref} className="footerLink">
+          Create one here
         </Link>
       </div>
 
       <style jsx>{`
         .formCard {
-          width: min(100%, 620px);
+          width: min(100%, 520px);
           padding: 32px;
           border-radius: 28px;
           background: linear-gradient(
@@ -297,7 +207,7 @@ function SignInForm({ role = "client", portalName = "Client Portal" }) {
 
         h2 {
           margin: 0;
-          font-size: clamp(1.85rem, 3vw, 2.45rem);
+          font-size: clamp(1.9rem, 3vw, 2.5rem);
           line-height: 1.15;
         }
 
@@ -309,7 +219,7 @@ function SignInForm({ role = "client", portalName = "Client Portal" }) {
         }
 
         .sectionCard {
-          padding: 20px;
+          padding: 22px;
           margin-top: 18px;
           border-radius: 22px;
           background: rgba(255, 255, 255, 0.62);
@@ -328,7 +238,6 @@ function SignInForm({ role = "client", portalName = "Client Portal" }) {
         .sectionHeader h3 {
           margin: 0;
           font-size: 1rem;
-          color: ${palette.text};
         }
 
         .sectionHeader span {
@@ -337,9 +246,8 @@ function SignInForm({ role = "client", portalName = "Client Portal" }) {
           font-weight: 600;
         }
 
-        .grid {
+        .stack {
           display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 18px;
         }
 
@@ -352,10 +260,6 @@ function SignInForm({ role = "client", portalName = "Client Portal" }) {
           font-weight: 600;
         }
 
-        .fieldFull {
-          grid-column: 1 / -1;
-        }
-
         .inputWrap {
           position: relative;
         }
@@ -366,12 +270,11 @@ function SignInForm({ role = "client", portalName = "Client Portal" }) {
           left: 16px;
           transform: translateY(-50%);
           pointer-events: none;
-          transition: color 0.2s ease;
         }
 
         input {
           width: 100%;
-          min-height: 52px;
+          min-height: 54px;
           padding: 14px 46px 14px 46px;
           border-radius: 16px;
           border: 1px solid ${palette.border};
@@ -502,14 +405,6 @@ function SignInForm({ role = "client", portalName = "Client Portal" }) {
             border-radius: 18px;
           }
 
-          .grid {
-            grid-template-columns: 1fr;
-          }
-
-          .fieldFull {
-            grid-column: auto;
-          }
-
           .sectionHeader {
             flex-direction: column;
             margin-bottom: 14px;
@@ -524,4 +419,4 @@ function SignInForm({ role = "client", portalName = "Client Portal" }) {
   );
 }
 
-export default SignInForm;
+export default LoginForm;

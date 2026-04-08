@@ -13,13 +13,12 @@ router.post('/register', async (req, res) => {
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    // const userRole = role === 'admin' ? 'admin' : 'client';
-    const userRole = 'user';
+    const normalizedRole = role === 'admin' ? 'admin' : 'client';
     const result = await pool.query(
       `INSERT INTO users (name, email, phone, password_hash, role)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id, name, email, phone, role, created_at`,
-      [name, email, phone, hashedPassword, userRole]
+      [name, email, phone, hashedPassword, normalizedRole]
     );
 
     res.status(201).json(result.rows[0]);

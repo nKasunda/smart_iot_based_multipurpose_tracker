@@ -1,13 +1,18 @@
 import Head from "next/head";
-import { useRouter } from "next/router";
+import Link from "next/link";
+import RoleCard from "../components/RoleCard";
+
+const quickStats = [
+  { label: "Role-based access", value: "Admin + Client" },
+  { label: "Tracking view", value: "Live + History" },
+  { label: "Device coverage", value: "Multi-asset" },
+];
 
 export default function HomePage() {
-  const router = useRouter();
-
   return (
     <>
       <Head>
-        <title>IoT Tracker | Sign In</title>
+        <title>IoT Tracker | Home</title>
         <meta
           name="description"
           content="Smart IoT tracker platform for monitoring devices, routes, and alerts."
@@ -24,37 +29,62 @@ export default function HomePage() {
           <div className="content">
             <div className="brandBlock">
               <span className="eyebrow">Smart Monitoring Platform</span>
-              <h1>IoT Multipurpose Tracker</h1>
-              <p>
-                Monitor connected devices, view location activity, and access
-                your tracking tools from one secure workspace.
+              <h1>Track devices and movement from one connected workspace.</h1>
+              <p className="lead">
+                The Smart IoT Multipurpose Tracker brings together secure access,
+                live location visibility, and device oversight in a single
+                platform designed for both clients and administrators.
               </p>
+
+              <div className="ctaRow">
+                <Link href="/ClientLogin" className="primaryButton">
+                  Client Sign In
+                </Link>
+                <Link href="/ClientSignIn" className="secondaryButton">
+                  Create Account
+                </Link>
+              </div>
+
+              <div className="statsGrid">
+                {quickStats.map((stat) => (
+                  <div key={stat.label} className="statCard">
+                    <span>{stat.label}</span>
+                    <strong>{stat.value}</strong>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="card">
-              <span className="cardLabel">Choose Access</span>
-              <h2>Sign in to continue</h2>
-              <p>
-                Select the portal that matches your role to access the correct
-                dashboard and features.
-              </p>
+            <div className="accessPanel">
+              <div className="panelHeader">
+                <span className="panelLabel">Choose Access</span>
+                <h2>Enter the workspace that matches your role</h2>
+                <p>
+                  Continue as a client to follow assigned assets, or sign in as
+                  an administrator to manage the full tracking environment.
+                </p>
+              </div>
 
-              <div className="actions">
-                <button
-                  type="button"
-                  className="primaryButton"
-                  onClick={() => router.push("/ClientSignIn")}
-                >
-                  Client Portal
-                </button>
+              <div className="roleGrid">
+                <Link href="/ClientLogin" className="cardLink">
+                  <RoleCard
+                    eyebrow="Client"
+                    title="Client Workspace"
+                    description="Access your dashboard, check assigned devices, and review current movement updates."
+                    meta="Personal tracking access"
+                    accent="primary"
+                  />
+                </Link>
 
-                <button
-                  type="button"
-                  className="secondaryButton"
-                  onClick={() => router.push("/AdminSignIn")}
-                >
-                  Administrator
-                </button>
+                <Link href="/AdminLogin" className="cardLink">
+                  <RoleCard
+                    eyebrow="Administrator"
+                    title="Admin Workspace"
+                    description="Manage users, devices, monitoring activity, and the wider tracking operations."
+                    meta="Platform management access"
+                    accent="secondary"
+                  />
+                </Link>
               </div>
             </div>
           </div>
@@ -120,7 +150,7 @@ export default function HomePage() {
           inset: 0;
           background: linear-gradient(
             135deg,
-            rgba(4, 12, 24, 0.46),
+            rgba(4, 12, 24, 0.5),
             rgba(7, 26, 48, 0.18)
           );
         }
@@ -128,16 +158,16 @@ export default function HomePage() {
         .content {
           position: relative;
           z-index: 1;
-          width: min(1120px, 100%);
+          width: min(1180px, 100%);
           display: grid;
-          grid-template-columns: 1.2fr 0.9fr;
-          gap: 40px;
+          grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+          gap: 44px;
           align-items: center;
         }
 
         .brandBlock {
           color: #f4f7fb;
-          max-width: 620px;
+          max-width: 640px;
         }
 
         .eyebrow {
@@ -153,23 +183,88 @@ export default function HomePage() {
         }
 
         h1 {
-          margin: 0 0 18px;
-          font-size: clamp(2.5rem, 5vw, 4.5rem);
-          line-height: 1.05;
-          letter-spacing: -0.04em;
+          margin: 0 0 20px;
+          font-size: clamp(2.7rem, 5vw, 4.9rem);
+          line-height: 1.03;
+          letter-spacing: -0.045em;
         }
 
-        .brandBlock p {
+        .lead {
           margin: 0;
-          max-width: 560px;
+          max-width: 580px;
           font-size: 1.05rem;
-          line-height: 1.75;
+          line-height: 1.85;
           color: rgba(244, 247, 251, 0.88);
         }
 
-        .card {
-          padding: 36px 32px;
-          border-radius: 24px;
+        .ctaRow {
+          display: flex;
+          gap: 14px;
+          flex-wrap: wrap;
+          margin-top: 30px;
+        }
+
+        .primaryButton,
+        .secondaryButton {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 54px;
+          padding: 0 22px;
+          border-radius: 16px;
+          font-size: 0.98rem;
+          font-weight: 700;
+          transition: transform 0.2s ease, box-shadow 0.2s ease,
+            border-color 0.2s ease, background-color 0.2s ease;
+        }
+
+        .primaryButton {
+          background: #f4f8fc;
+          color: #123a63;
+          box-shadow: 0 16px 28px rgba(3, 12, 24, 0.18);
+        }
+
+        .secondaryButton {
+          border: 1px solid rgba(255, 255, 255, 0.24);
+          background: rgba(255, 255, 255, 0.08);
+          color: #f4f7fb;
+        }
+
+        .primaryButton:hover,
+        .secondaryButton:hover {
+          transform: translateY(-2px);
+        }
+
+        .statsGrid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 14px;
+          margin-top: 32px;
+        }
+
+        .statCard {
+          padding: 18px;
+          border-radius: 20px;
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          backdrop-filter: blur(8px);
+        }
+
+        .statCard span {
+          display: block;
+          margin-bottom: 10px;
+          color: rgba(244, 247, 251, 0.7);
+          font-size: 0.82rem;
+        }
+
+        .statCard strong {
+          font-size: 1rem;
+          color: #ffffff;
+        }
+
+        .accessPanel {
+          padding: 34px;
+          border-radius: 30px;
           background: linear-gradient(
             180deg,
             rgba(248, 250, 252, 0.96) 0%,
@@ -181,7 +276,11 @@ export default function HomePage() {
           border: 1px solid rgba(255, 255, 255, 0.45);
         }
 
-        .cardLabel {
+        .panelHeader {
+          margin-bottom: 24px;
+        }
+
+        .panelLabel {
           display: inline-block;
           margin-bottom: 12px;
           color: #315980;
@@ -193,82 +292,44 @@ export default function HomePage() {
 
         h2 {
           margin: 0 0 12px;
-          font-size: 1.9rem;
-          line-height: 1.2;
+          font-size: 2rem;
+          line-height: 1.18;
         }
 
-        .card p {
-          margin: 0 0 28px;
+        .panelHeader p {
+          margin: 0;
           color: #516477;
-          line-height: 1.7;
+          line-height: 1.75;
         }
 
-        .actions {
+        .roleGrid {
           display: grid;
-          gap: 14px;
+          gap: 18px;
         }
 
-        .primaryButton,
-        .secondaryButton {
-          width: 100%;
-          min-height: 54px;
-          border-radius: 14px;
-          border: 1px solid transparent;
-          font-size: 1rem;
-          font-weight: 700;
-          cursor: pointer;
-          transition: transform 0.2s ease, box-shadow 0.2s ease,
-            border-color 0.2s ease, background-color 0.2s ease;
+        .cardLink {
+          display: block;
         }
 
-        .primaryButton {
-          background: #123a63;
-          color: #ffffff;
-          box-shadow: 0 14px 28px rgba(18, 58, 99, 0.22);
-        }
-
-        .secondaryButton {
-          background: #ffffff;
-          color: #123a63;
-          border-color: #c9d6e2;
-        }
-
-        .primaryButton:hover,
-        .secondaryButton:hover {
-          transform: translateY(-1px);
-        }
-
-        .primaryButton:hover {
-          box-shadow: 0 18px 32px rgba(18, 58, 99, 0.3);
-        }
-
-        .secondaryButton:hover {
-          background: #f7fafc;
-          border-color: #9ab1c6;
-        }
-
-        @media (max-width: 900px) {
+        @media (max-width: 980px) {
           .content {
             grid-template-columns: 1fr;
-            gap: 24px;
+            gap: 28px;
           }
 
           .brandBlock {
             max-width: none;
           }
+        }
 
-          .hero {
-            padding: 24px;
+        @media (max-width: 720px) {
+          .statsGrid {
+            grid-template-columns: 1fr;
           }
 
-          .ambientGlowTop {
-            width: 280px;
-            height: 280px;
-          }
-
-          .ambientGlowBottom {
-            width: 300px;
-            height: 300px;
+          .accessPanel {
+            padding: 26px 22px;
+            border-radius: 24px;
           }
         }
 
@@ -278,21 +339,20 @@ export default function HomePage() {
             min-height: 100dvh;
           }
 
-          .card {
-            padding: 28px 22px;
-            border-radius: 20px;
+          .hero {
+            padding: 24px;
           }
 
           h1 {
-            font-size: 2.4rem;
+            font-size: 2.55rem;
           }
 
           h2 {
-            font-size: 1.6rem;
+            font-size: 1.65rem;
           }
 
-          .brandBlock p,
-          .card p {
+          .lead,
+          .panelHeader p {
             font-size: 0.98rem;
           }
         }
