@@ -1,7 +1,7 @@
 // index.js
 require('dotenv').config();
 
-const express = require('express');
+const express = require('express');git
 const pool = require('./db'); // PostgreSQL connection
 const authRouter = require('./routes/auth');
 const usersRouter = require('./routes/users');
