@@ -3,7 +3,10 @@ import SideMenu from "@/components/SideMenu";
 import DashboardHeader from "@/components/DashboardHeader";
 import GoogleMapView from "@/components/DashboardSections/GoogleMapView";
 import Overview from "@/components/DashboardSections/Overview"; // keep this
-
+// Import shared alerts logic
+import AlertPanel from "@/components/Alerts/AlertPanel";
+import { useAlerts } from "@/components/Alerts/useAlerts";
+import SettingsPanel from "@/components/Settings/SettingsPanel";
 
 export function LiveMap() {
   return (
@@ -18,10 +21,10 @@ function AssetList() {
   return <div>📋 Asset List Content</div>;
 }
 function Alerts() {
-  return <div>🔔 Alerts Section Content</div>;
+  return <AlertPanel />;
 }
 function Settings() {
-  return <div>⚙️ Settings Section Content</div>;
+  return <SettingsPanel />;
 }
 
 // Map label → component
@@ -36,7 +39,11 @@ const sectionComponents = {
 export default function AdminDashboard() {
   const [menuOpen, setMenuOpen] = useState(true);
   const [activeSection, setActiveSection] = useState("Overview");
+  // Get alerts from shared hook
+  const { alerts } = useAlerts();
 
+// Count only warnings
+  const warnings = alerts.filter(a => a.type === "warning").length;
   const ActiveComponent = sectionComponents[activeSection];
 
   return (
@@ -61,7 +68,7 @@ export default function AdminDashboard() {
             overflowY: "auto",
           }}
         >
-          <ActiveComponent />
+          <ActiveComponent warnings={warnings} />
         </main>
       </div>
     </div>

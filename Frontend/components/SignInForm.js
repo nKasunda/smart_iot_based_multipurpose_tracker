@@ -1,18 +1,19 @@
 import React, { useState } from "react";
-import { FaEnvelope, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
+import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaUser } from "react-icons/fa";
 import Link from "next/link";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "@/pages/Firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { useRouter } from "next/router";
 
 function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [focusedInput, setFocusedInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
   const router = useRouter();
 
-  const handleSubmit = async (e) => {
+  const handleSignIn = async (e) => {
     e.preventDefault();
     setLoading(true);
     const email = e.target.email.value;
@@ -45,11 +46,41 @@ function SignInForm() {
     }
   };
 
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    const name = e.target.name.value;
+    const email = e.target.email.value;
+    const password = e.target.password.value;
+
+    try {
+      // Create user account
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Save user data to Firestore with client role
+      await setDoc(doc(db, "users", user.uid), {
+        name: name,
+        email: email,
+        role: "client",
+        createdAt: new Date().toISOString(),
+      });
+
+      alert("Account created successfully! Please sign in.");
+      setIsRegistering(false);
+    } catch (error) {
+      console.error("Registration error:", error.message);
+      alert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getColor = (inputName) => (focusedInput === inputName ? "#000080": "gray");
 
   return (
     <form
-      onSubmit={handleSubmit}
+      onSubmit={isRegistering ? handleRegister : handleSignIn}
       style={{
         backgroundColor: "white",
         padding: "40px",
@@ -69,8 +100,61 @@ function SignInForm() {
           fontSize: "22px",
         }}
       >
-        Sign in to your account
+        {isRegistering ? "Create Account" : "Sign in to your account"}
       </h2>
+
+      {/* Name Field (only for registration) */}
+      {isRegistering && (
+        <div style={{ width: "100%", marginBottom: "25px" }}>
+          <label
+            htmlFor="name"
+            style={{
+              color: "black",
+              fontWeight: 500,
+              marginBottom: "8px",
+              display: "block",
+              textAlign: "left",
+              fontSize: "15px",
+            }}
+          >
+            Full Name
+          </label>
+          <div style={{ position: "relative" }}>
+            <FaUser
+              style={{
+                position: "absolute",
+                left: "10px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: getColor("name"),
+                pointerEvents: "none",
+              }}
+            />
+            <input
+              id="name"
+              name="name"
+              type="text"
+              placeholder="Enter your full name"
+              style={{
+                width: "100%",
+                padding: "12px 10px 12px 40px",
+                borderRadius: "8px",
+                border: `2px solid ${getColor("name")}`,
+                backgroundColor: "white",
+                color: "black",
+                outline: "none",
+                height: "45px",
+                boxSizing: "border-box",
+                fontWeight: 400,
+                fontSize: "14px",
+              }}
+              onFocus={() => setFocusedInput("name")}
+              onBlur={() => setFocusedInput("")}
+              required
+            />
+          </div>
+        </div>
+      )}
 
       {/* Email Field */}
       <div style={{ width: "100%", marginBottom: "25px" }}>
@@ -153,7 +237,7 @@ function SignInForm() {
             id="password"
             name="password"
             type={showPassword ? "text" : "password"}
-            placeholder="Enter your password"
+            placeholder={isRegistering ? "Create a password" : "Enter your password"}
             style={{
               width: "100%",
               padding: "12px 40px 12px 40px",
@@ -187,29 +271,53 @@ function SignInForm() {
         </div>
       </div>
 
-      {/* Forgot Password Link */}
-      <div style={{ textAlign: "right", marginBottom: "30px" }}>
-        <Link
-          href="/ForgotPassword"
-          style={{
-            color: "#000080",
-            textDecoration: "none",
-            fontSize: "0.9rem",
-            fontWeight: 400,
-          }}
-        >
-          Forgot Password?
-        </Link>
-      </div>
+      {/* Forgot Password Link (only for sign-in) */}
+      {!isRegistering && (
+        <div style={{ textAlign: "right", marginBottom: "30px" }}>
+          <Link
+            href="/ForgotPassword"
+            style={{
+              color: "#000080",
+              textDecoration: "none",
+              fontSize: "0.9rem",
+              fontWeight: 400,
+            }}
+          >
+            Forgot Password?
+          </Link>
+        </div>
+      )}
 
-      {/* 🔹 Updated Sign In Button with Animation + Spinner */}
+      {/* Sign In/Register Button */}
       <button
         type="submit"
         className="sign-in-button"
         disabled={loading}
       >
-        {loading ? <div className="spinner"></div> : "Sign In"}
+        {loading ? <div className="spinner"></div> : (isRegistering ? "Create Account" : "Sign In")}
       </button>
+
+      {/* Toggle between Sign In and Register */}
+      <div style={{ textAlign: "center", marginTop: "20px" }}>
+        <span style={{ color: "#666", fontSize: "14px" }}>
+          {isRegistering ? "Already have an account? " : "Don't have an account? "}
+          <button
+            type="button"
+            onClick={() => setIsRegistering(!isRegistering)}
+            style={{
+              color: "#000080",
+              textDecoration: "underline",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: "500",
+            }}
+          >
+            {isRegistering ? "Sign in here" : "Register here"}
+          </button>
+        </span>
+      </div>
 
       <style jsx>{`
         input::placeholder {

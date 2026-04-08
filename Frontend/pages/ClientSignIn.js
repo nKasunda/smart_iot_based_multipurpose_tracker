@@ -22,7 +22,7 @@ function ClientPage() {
           textShadow: "2px 2px 4px rgba(0,0,0,0.5)",
         }}
       >
-        Client Portal
+        Client
       </h2>
       <div style={{ display: "flex", justifyContent: "center" }}>
         <SignInForm/>
