@@ -1,7 +1,7 @@
 import React from "react";
-import SignInForm from "../components/SignInForm";
+import LoginForm from "../components/LoginForm";
 
-function ClientPage() {
+function ClientLoginPage() {
   return (
     <main className="pageShell">
       <section className="hero">
@@ -13,15 +13,14 @@ function ClientPage() {
         <div className="content">
           <div className="intro">
             <span className="eyebrow">Client</span>
-            <h1>Create your client account and start tracking smarter.</h1>
+            <h1>Access your client dashboard and track what matters.</h1>
             <p>
-              Register your details to access the client portal, monitor your
-              assets, and stay connected to the latest movement and status
-              updates.
+              Sign in to review your assigned devices, check the latest
+              movement, and stay updated from one secure workspace.
             </p>
           </div>
 
-          <SignInForm role="client" portalName="Client" />
+          <LoginForm role="client" portalName="Client" />
         </div>
       </section>
 
@@ -94,7 +93,7 @@ function ClientPage() {
           z-index: 1;
           width: min(1160px, 100%);
           display: grid;
-          grid-template-columns: 1fr minmax(320px, 620px);
+          grid-template-columns: 1fr minmax(320px, 520px);
           gap: 40px;
           align-items: center;
         }
@@ -158,4 +157,4 @@ function ClientPage() {
   );
 }
 
-export default ClientPage;
+export default ClientLoginPage;

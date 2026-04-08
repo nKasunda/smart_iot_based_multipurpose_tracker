@@ -2,6 +2,7 @@
 require('dotenv').config();
 
 const express = require('express');
+const bcrypt = require('bcryptjs');
 const pool = require('./db'); // PostgreSQL connection
 const authRouter = require('./routes/auth');
 const usersRouter = require('./routes/users');
@@ -33,6 +34,39 @@ app.get('/db-test', async (req, res) => {
   }
 });
 
+async function seedDefaultAdmin() {
+  const adminEmail = process.env.DEMO_ADMIN_EMAIL || 'admin@tracker.local';
+  const adminPassword = process.env.DEMO_ADMIN_PASSWORD || 'Admin123!';
+  const adminName = process.env.DEMO_ADMIN_NAME || 'System Administrator';
+  const adminPhone = process.env.DEMO_ADMIN_PHONE || '+27000000000';
+
+  try {
+    const existingAdmin = await pool.query(
+      'SELECT id FROM users WHERE email = $1 LIMIT 1',
+      [adminEmail]
+    );
+
+    if (existingAdmin.rows.length > 0) {
+      console.log(`Demo admin ready: ${adminEmail}`);
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(adminPassword, 10);
+    await pool.query(
+      `INSERT INTO users (name, email, phone, password_hash, role)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [adminName, adminEmail, adminPhone, passwordHash, 'admin']
+    );
+
+    console.log(`Seeded demo admin account: ${adminEmail}`);
+  } catch (error) {
+    console.error('Failed to seed demo admin account:', error.message);
+  }
+}
+
 // Start server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+app.listen(PORT, async () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+  await seedDefaultAdmin();
+});
