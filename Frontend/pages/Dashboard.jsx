@@ -2,34 +2,30 @@ import React, { useState } from "react";
 import SideMenu from "@/components/SideMenu";
 import DashboardHeader from "@/components/DashboardHeader";
 import GoogleMapView from "@/components/DashboardSections/GoogleMapView";
-import Overview from "@/components/DashboardSections/Overview"; // keep this
-// Import shared alerts logic
+import Overview from "@/components/DashboardSections/Overview";
+import AssetList from "@/components/DashboardSections/AssetList";
 import AlertPanel from "@/components/Alerts/AlertPanel";
 import { useAlerts } from "@/components/Alerts/useAlerts";
 import SettingsPanel from "@/components/Settings/SettingsPanel";
 
 export function LiveMap() {
   return (
-    <div style={{ flex:1, display: "flex", flexDirection: "column" }}>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
       <GoogleMapView fullScreen={true} />
     </div>
   );
 }
 
-// Dummy section components
-function AssetList() {
-  return <div>📋 Asset List Content</div>;
-}
 function Alerts() {
   return <AlertPanel />;
 }
+
 function Settings() {
   return <SettingsPanel />;
 }
 
-// Map label → component
 const sectionComponents = {
-  Overview, // imported component directly
+  Overview,
   "Live Map": LiveMap,
   "Asset List": AssetList,
   Alerts,
@@ -52,14 +48,12 @@ export default function AdminDashboard() {
         isOpen={menuOpen}
         toggle={() => setMenuOpen(!menuOpen)}
         activeItem={activeSection}
-        onSelect={setActiveSection} // SPA behavior
+        onSelect={setActiveSection}
       />
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-        {/* Header */}
         <DashboardHeader />
 
-        {/* Main content */}
         <main
           style={{
             flex: 1,
@@ -74,4 +68,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-
