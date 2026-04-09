@@ -5,7 +5,7 @@ import GoogleMapView from "@/components/DashboardSections/GoogleMapView";
 
 const BASE_URL = "http://192.168.7.219:5000"; // backend URL for development
 
-export default function Overview({ warnings }) {
+export default function Overview() {
   const [statsData, setStatsData] = useState({
     totalAssets: 0,
     activeNow: 0,
@@ -52,7 +52,7 @@ export default function Overview({ warnings }) {
   const stats = [
     { label: "Total Assets", value: statsData.totalAssets, icon: <FiBox size={28} color="#d1d5db" />, bgColor: "#2563eb" },
     { label: "Active Now", value: statsData.activeNow, icon: <FiCheckCircle size={28} color="#d1d5db" />, bgColor: "#15803d" },
-    { label: "Warnings", value: warnings + statsData.warnings, icon: <FiAlertTriangle size={28} color="#d1d5db" />, bgColor: "#b91c1c" },
+    { label: "Warnings", value: statsData.warnings, icon: <FiAlertTriangle size={28} color="#d1d5db" />, bgColor: "#b91c1c" },
     { label: "In-Transit", value: statsData.inTransit, icon: <FiTrendingUp size={28} color="#d1d5db" />, bgColor: "#d97706" },
   ];
 
