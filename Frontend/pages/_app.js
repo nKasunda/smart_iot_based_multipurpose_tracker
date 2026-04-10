@@ -8,15 +8,14 @@ const montserrat = Montserrat({ subsets: ["latin"], weight: ["400", "600", "700"
 
 export default function App({ Component, pageProps }) {
   return (
-    <>
+    <div className={montserrat.className}>
       <Head>
-        {/* Roboto font for your SignInForm */}
         <link
           href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
           rel="stylesheet"
         />
       </Head>
       <Component {...pageProps} />
-    </>
+    </div>
   );
 }

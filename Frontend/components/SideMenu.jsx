@@ -23,7 +23,6 @@ function SideMenu({ isOpen, toggle, activeItem, onSelect }) {
         borderRight: "1px solid #e5e7eb",
       }}
     >
-      {/* Top */}
       <div
         style={{
           height: "60px",
@@ -53,7 +52,6 @@ function SideMenu({ isOpen, toggle, activeItem, onSelect }) {
         </button>
       </div>
 
-      {/* Menu */}
       <nav
         style={{
           padding: isOpen ? "14px" : "12px 0",
@@ -100,7 +98,6 @@ function SideMenu({ isOpen, toggle, activeItem, onSelect }) {
         })}
       </nav>
 
-      {/* System Status */}
       {isOpen && (
         <div style={statusCardStyle}>
           <div style={statusTitleStyle}>
@@ -128,7 +125,6 @@ function SideMenu({ isOpen, toggle, activeItem, onSelect }) {
   );
 }
 
-/* ================= MENU CONFIG ================= */
 const menuItems = [
   { label: "Overview", icon: <FiBarChart2 size={18} /> },
   { label: "Live Map", icon: <FiMap size={18} /> },
@@ -137,7 +133,6 @@ const menuItems = [
   { label: "Settings", icon: <FiSettings size={18} /> },
 ];
 
-/* ================= STYLES ================= */
 const iconButtonStyle = {
   background: "none",
   border: "none",

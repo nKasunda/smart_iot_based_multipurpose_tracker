@@ -17,7 +17,6 @@ function DashboardHeader() {
 
   const signalColor = "green";
 
-  // ⛔ Prevent SSR/client mismatch
   if (!mounted) return null;
 
   return (
@@ -31,7 +30,6 @@ function DashboardHeader() {
         backgroundColor: "#ffffff",
       }}
     >
-      {/* Left title */}
       <div>
         <h1 style={{ margin: 0, fontSize: "20px", color: "#020617" }}>
           Asset Tracking Dashboard
@@ -41,9 +39,7 @@ function DashboardHeader() {
         </p>
       </div>
 
-      {/* Right side */}
       <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
-        {/* LIVE status */}
         <div
           style={{
             display: "flex",
@@ -74,7 +70,6 @@ function DashboardHeader() {
           </span>
         </div>
 
-        {/* Time */}
         <div
           style={{
             display: "flex",

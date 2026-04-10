@@ -3,20 +3,18 @@ import { FiBox, FiCheckCircle, FiAlertTriangle, FiTrendingUp, FiBell } from "rea
 import axios from "axios";
 import GoogleMapView from "@/components/DashboardSections/GoogleMapView";
 
-const BASE_URL = "http://192.168.7.219:5000"; // backend URL for development
+const BASE_URL = "http://localhost:5000";
 
 export default function Overview() {
   const [statsData, setStatsData] = useState({
     totalAssets: 0,
+    totalLocations: 0,
     activeNow: 0,
     warnings: 0,
-    inTransit: 0,
   });
 
   const [recentAlerts, setRecentAlerts] = useState([]);
-  const [mapType, setMapType] = useState("Standard");
 
-  // ✅ Safe Axios GET function
   const safeAxiosGet = async (url) => {
     try {
       const res = await axios.get(url);
@@ -33,7 +31,6 @@ export default function Overview() {
     }
   };
 
-  // ✅ Fetch stats and alerts
   useEffect(() => {
     const fetchData = async () => {
       const stats = await safeAxiosGet(`${BASE_URL}/api/tracker/stats`);
@@ -44,23 +41,21 @@ export default function Overview() {
     };
 
     fetchData();
-    const interval = setInterval(fetchData, 5000); // refresh every 5s
+    const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, []);
 
-  // Stats cards configuration
   const stats = [
     { label: "Total Assets", value: statsData.totalAssets, icon: <FiBox size={28} color="#d1d5db" />, bgColor: "#2563eb" },
+    { label: "Locations", value: statsData.totalLocations, icon: <FiTrendingUp size={28} color="#d1d5db" />, bgColor: "#0f766e" },
     { label: "Active Now", value: statsData.activeNow, icon: <FiCheckCircle size={28} color="#d1d5db" />, bgColor: "#15803d" },
     { label: "Warnings", value: statsData.warnings, icon: <FiAlertTriangle size={28} color="#d1d5db" />, bgColor: "#b91c1c" },
-    { label: "In-Transit", value: statsData.inTransit, icon: <FiTrendingUp size={28} color="#d1d5db" />, bgColor: "#d97706" },
   ];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "20px", marginTop: "16px", minHeight: "100vh", overflowY: "auto", padding: "16px" }}>
-      {/* Stats Cards */}
       <div style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
-        {stats.map(stat => (
+        {stats.map((stat) => (
           <div key={stat.label} style={{ flex: "1 1 200px", minHeight: "180px", display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "flex-start", padding: "20px", borderRadius: "16px", backgroundColor: stat.bgColor, fontWeight: "700", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}>
             <div style={{ marginBottom: "12px" }}>{stat.icon}</div>
             <div style={{ fontSize: "28px", fontWeight: "800", color: "#fff", marginBottom: "8px" }}>{stat.value}</div>
@@ -69,12 +64,10 @@ export default function Overview() {
         ))}
       </div>
 
-      {/* Map */}
       <div style={{ width: "100%", height: "500px", borderRadius: "16px", overflow: "hidden", backgroundColor: "#ffffff", boxShadow: "0 4px 16px rgba(0,0,0,0.15)", display: "flex", flexDirection: "column" }}>
-        <GoogleMapView mapType={mapType.toLowerCase()} />
+        <GoogleMapView />
       </div>
 
-      {/* Recent Alerts */}
       <div style={{ width: "100%", borderRadius: "16px", overflow: "hidden", backgroundColor: "#ffffff", boxShadow: "0 4px 16px rgba(0,0,0,0.15)", display: "flex", flexDirection: "column" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "12px 20px", borderBottom: "1px solid #e5e7eb", backgroundColor: "#f9fafb" }}>
           <FiBell size={20} color="#ef4444" />

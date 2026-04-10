@@ -1,18 +1,15 @@
 import React from "react";
-import Header from "../components/Header";
 import { useRouter } from "next/router";
 
 function App() {
   const router = useRouter();
 
   const handleClientLogin = () => {
-    // Add your client login logic here
     router.push("/ClientSignIn");
     console.log("Client login clicked");
   };
 
   const handleAdminLogin = () => {
-    // Add your admin login logic here
     router.push("/AdminSignIn");
     console.log("Admin login clicked");
   };
@@ -25,11 +22,11 @@ function App() {
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
         minHeight: "100vh",
-        color: "white"
+        color: "white",
       }}
     >
-     
-      
+
+
       <main style={{ padding: "200px" }}>
         <h2
           style={{
@@ -38,12 +35,12 @@ function App() {
             fontWeight: "700",
             letterSpacing: "2px",
             textShadow: "3px 3px 6px rgba(0,0,0,0.7)",
-            marginBottom: "40px"
+            marginBottom: "40px",
           }}
         >
           Welcome
         </h2>
-        
+
         <div style={{ display: "flex", gap: "20px", marginTop: "30px" }}>
           <button
             onClick={handleClientLogin}
@@ -59,7 +56,7 @@ function App() {
               cursor: "pointer",
               transition: "all 0.3s ease",
               textTransform: "uppercase",
-              letterSpacing: "1px"
+              letterSpacing: "1px",
             }}
             onMouseEnter={(e) => {
               e.target.style.backgroundColor = "rgba(0, 0, 128, 1)";
@@ -74,7 +71,7 @@ function App() {
           >
             Client Account
           </button>
-          
+
           <button
             onClick={handleAdminLogin}
             style={{
@@ -89,7 +86,7 @@ function App() {
               cursor: "pointer",
               transition: "all 0.3s ease",
               textTransform: "uppercase",
-              letterSpacing: "1px"
+              letterSpacing: "1px",
             }}
             onMouseEnter={(e) => {
               e.target.style.backgroundColor = "rgba(220, 38, 38, 1)";

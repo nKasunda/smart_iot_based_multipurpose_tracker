@@ -3,148 +3,247 @@ import { GoogleMap, LoadScript, Marker, InfoWindow, Polyline } from "@react-goog
 import axios from "axios";
 
 const containerStyle = { width: "100%", height: "865px" };
-
-// Colors for trackers (will loop if more trackers than colors)
 const trackerColors = ["#2563eb", "#16a34a", "#dc2626", "#d97706", "#9333ea", "#0ea5e9"];
+const animationSteps = 14;
+const animationIntervalMs = 40;
 
 export default function GoogleMapView({ fullScreen = false }) {
   const [trackers, setTrackers] = useState({});
+  const trackersRef = useRef({});
   const [trackersHistory, setTrackersHistory] = useState({});
+  const historyRef = useRef({});
   const [activeInfo, setActiveInfo] = useState(null);
+  const [selectedTracker, setSelectedTracker] = useState("");
   const [mapCenter, setMapCenter] = useState(null);
+  const [loading, setLoading] = useState(true);
   const mapRef = useRef(null);
 
-  useEffect(() => {
-    const fetchTrackers = async () => {
-      try {
-        const trackerRes = await axios.get("http://192.168.151.219:5000/api/tracker");
-        const trackerList = trackerRes.data;
+  const syncTrackers = (nextTrackers) => {
+    trackersRef.current = nextTrackers;
+    setTrackers(nextTrackers);
+  };
 
-        const newData = {};
-        const newHistory = { ...trackersHistory };
+  const syncHistory = (nextHistory) => {
+    historyRef.current = nextHistory;
+    setTrackersHistory(nextHistory);
+  };
 
-        for (let i = 0; i < trackerList.length; i++) {
-          const tracker = trackerList[i];
-          try {
-            const res = await axios.get(
-              `http://192.168.151.219:5000/api/tracker/${tracker.trackerId}/history`
-            );
-            const locations = res.data;
+  const centerOnTracker = (trackerId) => {
+    const targetId = trackerId || selectedTracker || Object.keys(trackersRef.current)[0];
+    const loc = targetId ? trackersRef.current[targetId] : mapCenter;
+    if (!loc || !mapRef.current) return;
 
-            if (locations && locations.length > 0) {
-              const latest = locations[locations.length - 1];
-              newData[tracker.trackerId] = latest;
+    mapRef.current.panTo({ lat: loc.lat, lng: loc.lng });
+    setMapCenter({ lat: loc.lat, lng: loc.lng });
+    setSelectedTracker(targetId);
+  };
 
-              if (!newHistory[tracker.trackerId]) newHistory[tracker.trackerId] = [];
+  const animateMarker = (trackerId, from, to) => {
+    if (!from || !to || (from.lat === to.lat && from.lng === to.lng)) return;
 
-              const existing = newHistory[tracker.trackerId];
-              const lastExisting = existing[existing.length - 1];
-              if (!lastExisting || lastExisting.lat !== latest.lat || lastExisting.lng !== latest.lng) {
-                newHistory[tracker.trackerId] = [...existing, latest];
-              }
+    const deltaLat = (to.lat - from.lat) / animationSteps;
+    const deltaLng = (to.lng - from.lng) / animationSteps;
+    let step = 0;
 
-              if (!mapCenter) setMapCenter({ lat: latest.lat, lng: latest.lng });
-            }
-          } catch (err) {
-            console.warn(`No history for tracker ${tracker.trackerId}:`, err.message);
-          }
-        }
+    const animate = () => {
+      step += 1;
+      const nextPosition = {
+        lat: from.lat + deltaLat * step,
+        lng: from.lng + deltaLng * step,
+        timestamp: to.timestamp,
+      };
+      const nextState = { ...trackersRef.current, [trackerId]: nextPosition };
+      syncTrackers(nextState);
 
-        setTrackers(newData);
-        setTrackersHistory(newHistory);
-      } catch (err) {
-        console.error("Error fetching trackers:", err);
+      if (step < animationSteps) {
+        setTimeout(animate, animationIntervalMs);
+      } else {
+        syncTrackers({ ...trackersRef.current, [trackerId]: to });
       }
     };
 
-    fetchTrackers();
-    const interval = setInterval(fetchTrackers, 3000);
+    animate();
+  };
+
+  const fetchLatest = async () => {
+    try {
+      const res = await axios.get("http://localhost:5000/api/tracker/latest");
+      const trackerList = Array.isArray(res.data) ? res.data.filter((item) => item.lat != null && item.lng != null) : [];
+      const nextTrackers = { ...trackersRef.current };
+      const nextHistory = { ...historyRef.current };
+
+      trackerList.forEach((tracker) => {
+        const latestPoint = { lat: tracker.lat, lng: tracker.lng, timestamp: tracker.timestamp };
+        const existingPoint = nextTrackers[tracker.trackerId];
+
+        if (existingPoint) {
+          if (existingPoint.lat !== latestPoint.lat || existingPoint.lng !== latestPoint.lng) {
+            animateMarker(tracker.trackerId, existingPoint, latestPoint);
+          }
+        } else {
+          nextTrackers[tracker.trackerId] = latestPoint;
+        }
+
+        const existingHistory = nextHistory[tracker.trackerId] || [];
+        const lastEntry = existingHistory[existingHistory.length - 1];
+        if (!lastEntry || lastEntry.lat !== latestPoint.lat || lastEntry.lng !== latestPoint.lng) {
+          nextHistory[tracker.trackerId] = [...existingHistory, latestPoint];
+        }
+      });
+
+      if (loading && trackerList.length > 0 && !mapCenter) {
+        setMapCenter({ lat: trackerList[0].lat, lng: trackerList[0].lng });
+        setSelectedTracker(trackerList[0].trackerId);
+      }
+
+      syncHistory(nextHistory);
+      syncTrackers(nextTrackers);
+      setLoading(false);
+    } catch (err) {
+      console.error("Error fetching latest trackers:", err);
+    }
+  };
+
+  const fetchInitialHistory = async (trackerIds) => {
+    if (!trackerIds.length) return;
+
+    try {
+      const historyPromises = trackerIds.map((id) =>
+        axios
+          .get(`http://localhost:5000/api/tracker/${encodeURIComponent(id)}/history`)
+          .then((res) => [id, res.data]),
+      );
+
+      const results = await Promise.all(historyPromises);
+      const historyState = { ...historyRef.current };
+      results.forEach(([id, locations]) => {
+        if (Array.isArray(locations)) {
+          historyState[id] = locations;
+        }
+      });
+      syncHistory(historyState);
+    } catch (err) {
+      console.error("Error loading tracker history:", err);
+    }
+  };
+
+  useEffect(() => {
+    const bootstrap = async () => {
+      await fetchLatest();
+      const ids = Object.keys(trackersRef.current);
+      if (ids.length) await fetchInitialHistory(ids);
+    };
+    bootstrap();
+
+    const interval = setInterval(fetchLatest, 3000);
     return () => clearInterval(interval);
-  }, [trackersHistory, mapCenter]);
+  }, []);
 
   const trackerIds = Object.keys(trackers);
+  const selectedLocation = selectedTracker ? trackers[selectedTracker] : null;
 
   return (
-    <LoadScript googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}>
-      <GoogleMap
-        mapContainerStyle={containerStyle}
-        center={mapCenter || { lat: -13.9626, lng: 33.7741 }}
-        zoom={16}
-        options={{
-          zoomControl: !fullScreen,
-          fullscreenControl: fullScreen,
-          streetViewControl: false,
-          mapTypeControl: false,
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+      <div
+        style={{
+          position: "absolute",
+          zIndex: 10,
+          top: 16,
+          right: 16,
+          display: "flex",
+          gap: "10px",
+          alignItems: "center",
+          background: "rgba(255,255,255,0.95)",
+          padding: "10px 12px",
+          borderRadius: "12px",
+          boxShadow: "0 20px 40px rgba(0,0,0,0.12)",
         }}
-        onLoad={(map) => (mapRef.current = map)}
       >
-        {/* Draw trails */}
-        {trackerIds.map((trackerId, index) => {
-          const path = trackersHistory[trackerId];
-          if (!path || path.length < 2) return null;
+        <select
+          value={selectedTracker}
+          onChange={(e) => setSelectedTracker(e.target.value)}
+          style={{ minWidth: "160px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #d1d5db" }}
+        >
+          {trackerIds.length === 0 ? <option value="">No trackers</option> : null}
+          {trackerIds.map((trackerId) => (
+            <option key={trackerId} value={trackerId}>
+              {trackerId}
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={() => centerOnTracker(selectedTracker || trackerIds[0])}
+          style={{ padding: "8px 12px", borderRadius: "10px", border: "none", background: "#2563eb", color: "#fff", cursor: "pointer" }}
+        >
+          Go to marker
+        </button>
+        <button
+          onClick={() => centerOnTracker(selectedTracker)}
+          style={{ padding: "8px 12px", borderRadius: "10px", border: "1px solid #2563eb", background: "#fff", color: "#2563eb", cursor: "pointer" }}
+        >
+          Center map
+        </button>
+      </div>
 
-          const color = trackerColors[index % trackerColors.length];
-          return (
-            <Polyline
-              key={trackerId}
-              path={path}
-              options={{
-                strokeColor: color,
-                strokeOpacity: 1,   // more visible
-                strokeWeight: 5,    // thicker line
-              }}
-            />
-          );
-        })}
+      <LoadScript googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}>
+        <GoogleMap
+          mapContainerStyle={containerStyle}
+          center={mapCenter || { lat: -13.9626, lng: 33.7741 }}
+          zoom={16}
+          options={{
+            zoomControl: !fullScreen,
+            fullscreenControl: fullScreen,
+            streetViewControl: false,
+            mapTypeControl: false,
+          }}
+          onLoad={(map) => (mapRef.current = map)}
+        >
+          {trackerIds.map((trackerId, index) => {
+            const path = trackersHistory[trackerId];
+            if (!path || path.length < 2) return null;
+            const color = trackerColors[index % trackerColors.length];
+            return <Polyline key={`path-${trackerId}`} path={path} options={{ strokeColor: color, strokeOpacity: 0.9, strokeWeight: 5 }} />;
+          })}
 
-        {/* Draw markers matching trail color */}
-        {trackerIds.map((trackerId, index) => {
-          const loc = trackers[trackerId];
-          if (!loc) return null;
+          {trackerIds.map((trackerId, index) => {
+            const loc = trackers[trackerId];
+            if (!loc) return null;
+            const color = trackerColors[index % trackerColors.length];
+            return (
+              <Marker
+                key={`marker-${trackerId}`}
+                position={{ lat: loc.lat, lng: loc.lng }}
+                onClick={() => {
+                  setActiveInfo(trackerId);
+                  setSelectedTracker(trackerId);
+                  centerOnTracker(trackerId);
+                }}
+                icon={{
+                  path: window.google.maps.SymbolPath.CIRCLE,
+                  scale: 9,
+                  fillColor: color,
+                  fillOpacity: 1,
+                  strokeWeight: 2,
+                  strokeColor: "#000",
+                }}
+              />
+            );
+          })}
 
-          const color = trackerColors[index % trackerColors.length];
-
-          return (
-            <Marker
-              key={trackerId}
-              position={{ lat: loc.lat, lng: loc.lng }}
-              onClick={() => setActiveInfo(trackerId)}
-              icon={{
-                path: window.google.maps.SymbolPath.CIRCLE,
-                scale: 8,
-                fillColor: color,
-                fillOpacity: 1,
-                strokeWeight: 2,
-                strokeColor: "#000",
-              }}
-            />
-          );
-        })}
-
-        {/* InfoWindow */}
-        {activeInfo && trackers[activeInfo] && (
-          <InfoWindow
-            position={{
-              lat: trackers[activeInfo].lat,
-              lng: trackers[activeInfo].lng,
-            }}
-            onCloseClick={() => setActiveInfo(null)}
-          >
-            <div
-              style={{
-                fontWeight: "700",
-                color: "#000",
-                backgroundColor: "#fff",
-                padding: "2px 6px",
-                borderRadius: "4px",
-                border: "1px solid #2563eb",
-              }}
-            >
-              {activeInfo}
-            </div>
-          </InfoWindow>
-        )}
-      </GoogleMap>
-    </LoadScript>
+          {activeInfo && trackers[activeInfo] && (
+            <InfoWindow position={trackers[activeInfo]} onCloseClick={() => setActiveInfo(null)}>
+              <div style={{ fontWeight: "700", color: "#000", backgroundColor: "#fff", padding: "8px 10px", borderRadius: "8px", border: "1px solid #2563eb" }}>
+                <div>{activeInfo}</div>
+                {selectedLocation?.timestamp ? (
+                  <div style={{ marginTop: "4px", fontSize: "12px", color: "#4b5563" }}>
+                    {new Date(selectedLocation.timestamp).toLocaleString()}
+                  </div>
+                ) : null}
+              </div>
+            </InfoWindow>
+          )}
+        </GoogleMap>
+      </LoadScript>
+    </div>
   );
 }
