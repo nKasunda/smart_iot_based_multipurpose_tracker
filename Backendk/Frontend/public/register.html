@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>TrackOS | Register</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script id="tailwind-config">
+          tailwind.config = {
+            darkMode: "class",
+            theme: {
+              extend: {
+                "colors": {
+                        "primary": "#9d4300",
+                        "primary-container": "#f97316",
+                        "on-primary": "#ffffff",
+                        "on-surface": "#191c1e",
+                        "on-surface-variant": "#584237",
+                        "surface": "#f7f9fb",
+                        "surface-container-lowest": "#ffffff",
+                        "outline-variant": "#e0c0b1",
+                },
+                "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                },
+                "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                }
+              },
+            },
+          }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-manrope { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .signature-gradient {
+            background: linear-gradient(135deg, #9d4300 0%, #f97316 100%);
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface flex items-center justify-center min-h-screen p-6">
+
+<div class="w-full max-w-lg">
+    <!-- Header/Logo -->
+    <div class="flex flex-col items-center mb-8">
+        <div class="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mb-6 shadow-xl shadow-primary/20">
+            <span class="material-symbols-outlined text-white text-3xl" style="font-variation-settings: 'FILL' 1;">person_add</span>
+        </div>
+        <h1 class="font-manrope font-extrabold text-primary text-4xl tracking-tighter italic">TrackOS</h1>
+        <p class="text-on-surface-variant font-medium mt-2">Operator Registration Terminal</p>
+    </div>
+
+    <!-- Register Card -->
+    <div class="bg-white rounded-[2.5rem] p-10 shadow-2xl border border-white/20">
+        <div class="mb-8 text-center">
+            <h2 class="text-2xl font-manrope font-bold tracking-tight text-on-surface mb-2 italic">Create Profile</h2>
+            <p class="text-xs text-on-surface-variant uppercase tracking-widest font-bold opacity-70">Provision internal credentials</p>
+        </div>
+
+        <!-- Google Sign Up -->
+        <div id="g_id_onload"
+             data-client_id="YOUR_PLACEHOLDER_CLIENT_ID_HERE.apps.googleusercontent.com"
+             data-context="signup"
+             data-ux_mode="popup"
+             data-callback="handleCredentialResponse"
+             data-auto_prompt="false"></div>
+        <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline" data-text="signup_with" data-shape="rectangular" data-logo_alignment="left" style="width: 100%; display: flex; justify-content: center; margin-bottom: 2rem;"></div>
+
+        <!-- Divider -->
+        <div class="flex items-center gap-4 mb-6">
+            <div class="h-[1px] flex-1 bg-outline-variant/30"></div>
+            <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.2em]">or local registration</span>
+            <div class="h-[1px] flex-1 bg-outline-variant/30"></div>
+        </div>
+
+        <!-- Manual Form -->
+        <form id="registerForm" class="space-y-4">
+            <div class="space-y-1">
+                <label class="text-[10px] font-extrabold text-on-surface-variant tracking-[0.2em] uppercase" for="name">Full Name</label>
+                <div class="relative group">
+                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary">person</span>
+                    <input class="w-full h-12 pl-12 bg-surface-container-lowest border border-outline-variant/60 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-on-surface" id="name" type="text" placeholder="Alex Operator" required/>
+                </div>
+            </div>
+            <div class="space-y-1">
+                <label class="text-[10px] font-extrabold text-on-surface-variant tracking-[0.2em] uppercase" for="email">Contact Email</label>
+                <div class="relative group">
+                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary">alternate_email</span>
+                    <input class="w-full h-12 pl-12 bg-surface-container-lowest border border-outline-variant/60 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-on-surface" id="email" type="email" placeholder="alex@trackos.io" required/>
+                </div>
+            </div>
+            <div class="space-y-1">
+                <label class="text-[10px] font-extrabold text-on-surface-variant tracking-[0.2em] uppercase" for="phone">Phone (Optional)</label>
+                <div class="relative group">
+                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary">phone</span>
+                    <input class="w-full h-12 pl-12 bg-surface-container-lowest border border-outline-variant/60 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-on-surface" id="phone" type="text" placeholder="+1 (000) 000-0000"/>
+                </div>
+            </div>
+            <div class="space-y-1">
+                <label class="text-[10px] font-extrabold text-on-surface-variant tracking-[0.2em] uppercase" for="password">Security Key</label>
+                <div class="relative group">
+                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary">key</span>
+                    <input class="w-full h-12 pl-12 bg-surface-container-lowest border border-outline-variant/60 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-on-surface" id="password" type="password" placeholder="••••••••••••" required/>
+                </div>
+            </div>
+            
+            <button class="w-full h-12 signature-gradient text-white font-bold rounded-xl active:scale-[0.98] transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 mt-4" type="submit">
+                <span>INITIALIZE PROFILE</span>
+                <span class="material-symbols-outlined">shield_check</span>
+            </button>
+        </form>
+
+        <div class="mt-8 text-center">
+            <p class="text-sm text-on-surface-variant font-medium">
+                Registered Operator? 
+                <a class="text-primary font-bold ml-1 hover:underline underline-offset-4" href="/login.html">Sign in here</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="mt-8 flex justify-between items-center px-4">
+        <div class="flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+            <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest italic">Gateway Secured</span>
+        </div>
+        <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter italic">Status: Link Ready</span>
+    </div>
+</div>
+
+<script src="/js/app.js"></script>
+<script>
+    redirectIfAuth();
+    
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const payload = {
+            name: document.getElementById('name').value,
+            email: document.getElementById('email').value,
+            phone: document.getElementById('phone').value,
+            password: document.getElementById('password').value,
+        };
+
+        try {
+            await apiFetch('/auth/register', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            
+            const loginData = await apiFetch('/auth/login', {
+                method: 'POST',
+                body: JSON.stringify({ email: payload.email, password: payload.password })
+            });
+            
+            setToken(loginData.token);
+            setUser(loginData.user);
+            window.location.href = '/';
+        } catch (err) {
+            alert(err.message);
+        }
+    });
+</script>
+</body>
+</html>
