@@ -23,10 +23,21 @@ module.exports = (sequelize, DataTypes) => {
       validate: { isEmail: true }
     },
     password: DataTypes.STRING,
-    role: DataTypes.STRING
+    role: {
+      type: DataTypes.STRING,
+      defaultValue: 'user'
+    }
   }, {
     sequelize,
     modelName: 'User',
+    defaultScope: {
+      attributes: { exclude: ['password'] }
+    },
+    scopes: {
+      withPassword: {
+        attributes: {}
+      }
+    }
   });
 
   return User;
