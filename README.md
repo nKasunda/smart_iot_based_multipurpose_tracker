@@ -1,1 +1,0 @@
-# smart_iot-_based_multipurpose_tracker

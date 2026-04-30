@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Header from "../components/Header";
 import RoleCard from "../components/RoleCard";
 
 function HomePage() {
