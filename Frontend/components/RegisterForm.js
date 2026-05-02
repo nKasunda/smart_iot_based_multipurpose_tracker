@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { FaEnvelope, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
+import { FaUser, FaEnvelope, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useAuth } from "../context/AuthContext";
 
-function SignInForm() {
+function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [focusedInput, setFocusedInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -16,23 +17,44 @@ function SignInForm() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    
+    const name = e.target.name.value;
     const email = e.target.email.value;
     const password = e.target.password.value;
+    const confirmPassword = e.target.confirmPassword.value;
+
+    // Validation
+    if (!name.trim()) {
+      setError("Name is required");
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      setLoading(false);
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      setLoading(false);
+      return;
+    }
 
     try {
-      const loginData = await auth.login(email, password);
-      // Role is now determined by backend - user's email determines if admin or client
-      // Both roles go to the same dashboard
+      await auth.register(name, email, password);
+      // Role is automatically set to 'user'/'client' by the backend
       router.push("/dashboard");
     } catch (error) {
-      console.error("Sign in error:", error.message);
+      console.error("Register error:", error.message);
       setError(error.response?.data?.error || error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const getColor = (inputName) => (focusedInput === inputName ? "#000080": "gray");
+  const getColor = (inputName) => (focusedInput === inputName ? "#000080" : "gray");
 
   return (
     <form
@@ -56,7 +78,7 @@ function SignInForm() {
           fontSize: "22px",
         }}
       >
-        Sign in to your account
+        Create your account
       </h2>
 
       {error ? (
@@ -76,6 +98,57 @@ function SignInForm() {
           {error}
         </div>
       ) : null}
+
+      {/* Name Field */}
+      <div style={{ width: "100%", marginBottom: "25px" }}>
+        <label
+          htmlFor="name"
+          style={{
+            color: "black",
+            fontWeight: 500,
+            marginBottom: "8px",
+            display: "block",
+            textAlign: "left",
+            fontSize: "15px",
+          }}
+        >
+          Full Name
+        </label>
+        <div style={{ position: "relative" }}>
+          <FaUser
+            style={{
+              position: "absolute",
+              left: "10px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: getColor("name"),
+              pointerEvents: "none",
+            }}
+          />
+          <input
+            id="name"
+            name="name"
+            type="text"
+            placeholder="Enter your full name"
+            style={{
+              width: "100%",
+              padding: "12px 10px 12px 40px",
+              borderRadius: "8px",
+              border: `2px solid ${getColor("name")}`,
+              backgroundColor: "white",
+              color: "black",
+              outline: "none",
+              height: "45px",
+              boxSizing: "border-box",
+              fontWeight: 400,
+              fontSize: "14px",
+            }}
+            onFocus={() => setFocusedInput("name")}
+            onBlur={() => setFocusedInput("")}
+            required
+          />
+        </div>
+      </div>
 
       {/* Email Field */}
       <div style={{ width: "100%", marginBottom: "25px" }}>
@@ -129,7 +202,7 @@ function SignInForm() {
       </div>
 
       {/* Password Field */}
-      <div style={{ width: "100%", marginBottom: "15px" }}>
+      <div style={{ width: "100%", marginBottom: "25px" }}>
         <label
           htmlFor="password"
           style={{
@@ -158,7 +231,7 @@ function SignInForm() {
             id="password"
             name="password"
             type={showPassword ? "text" : "password"}
-            placeholder="Enter your password"
+            placeholder="Enter your password (min 6 characters)"
             style={{
               width: "100%",
               padding: "12px 40px 12px 40px",
@@ -192,36 +265,86 @@ function SignInForm() {
         </div>
       </div>
 
-      {/* Forgot Password Link */}
-      <div style={{ textAlign: "right", marginBottom: "30px" }}>
-        <Link
-          href="/ForgotPassword"
+      {/* Confirm Password Field */}
+      <div style={{ width: "100%", marginBottom: "15px" }}>
+        <label
+          htmlFor="confirmPassword"
           style={{
-            color: "#000080",
-            textDecoration: "none",
-            fontSize: "0.9rem",
-            fontWeight: 400,
+            color: "black",
+            fontWeight: 500,
+            marginBottom: "8px",
+            display: "block",
+            textAlign: "left",
+            fontSize: "15px",
           }}
         >
-          Forgot Password?
-        </Link>
+          Confirm Password
+        </label>
+        <div style={{ position: "relative" }}>
+          <FaLock
+            style={{
+              position: "absolute",
+              left: "10px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: getColor("confirmPassword"),
+              pointerEvents: "none",
+            }}
+          />
+          <input
+            id="confirmPassword"
+            name="confirmPassword"
+            type={showConfirmPassword ? "text" : "password"}
+            placeholder="Confirm your password"
+            style={{
+              width: "100%",
+              padding: "12px 40px 12px 40px",
+              borderRadius: "8px",
+              border: `2px solid ${getColor("confirmPassword")}`,
+              backgroundColor: "white",
+              color: "black",
+              outline: "none",
+              height: "45px",
+              boxSizing: "border-box",
+              fontWeight: 400,
+              fontSize: "14px",
+            }}
+            onFocus={() => setFocusedInput("confirmPassword")}
+            onBlur={() => setFocusedInput("")}
+            required
+          />
+          <div
+            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+            style={{
+              position: "absolute",
+              right: "10px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: getColor("confirmPassword"),
+              cursor: "pointer",
+            }}
+          >
+            {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+          </div>
+        </div>
       </div>
 
-      {/* 🔹 Updated Sign In Button with Animation + Spinner */}
+      {/* Sign Up Button */}
       <button
         type="submit"
-        className="sign-in-button"
+        className="sign-up-button"
         disabled={loading}
+        style={{ marginTop: "30px" }}
       >
-        {loading ? <div className="spinner"></div> : "Sign In"}
+        {loading ? <div className="spinner"></div> : "Create Account"}
       </button>
 
-      {/* Register Link */}
+      {/* Sign In Link */}
       <div style={{ textAlign: "center", marginTop: "20px" }}>
         <span style={{ color: "black", fontSize: "14px" }}>
-          Don't have an account?{" "}
+          Already have an account?{" "}
           <Link
-            href="/register"
+            href="/"
             style={{
               color: "#000080",
               textDecoration: "none",
@@ -229,7 +352,7 @@ function SignInForm() {
               cursor: "pointer",
             }}
           >
-            Sign up here
+            Sign in here
           </Link>
         </span>
       </div>
@@ -241,7 +364,7 @@ function SignInForm() {
           font-weight: 400;
         }
 
-        .sign-in-button {
+        .sign-up-button {
           width: 100%;
           padding: 12px;
           background-color: #000080;
@@ -256,17 +379,17 @@ function SignInForm() {
           box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2);
         }
 
-        .sign-in-button:hover {
+        .sign-up-button:hover {
           transform: scale(1.05);
           background-color: #000080;
           box-shadow: 0 6px 14px rgba(0, 123, 255, 0.4);
         }
 
-        .sign-in-button:active {
+        .sign-up-button:active {
           transform: scale(0.97);
         }
 
-        .sign-in-button:disabled {
+        .sign-up-button:disabled {
           background-color: #000080;
           cursor: not-allowed;
           transform: none;
@@ -295,4 +418,4 @@ function SignInForm() {
   );
 }
 
-export default SignInForm;
+export default RegisterForm;
