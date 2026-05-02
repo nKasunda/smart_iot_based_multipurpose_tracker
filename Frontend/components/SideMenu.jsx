@@ -5,42 +5,53 @@ import {
   FiMap,
   FiList,
   FiBell,
-  FiSettings,
   FiActivity,
+  FiClock,
 } from "react-icons/fi";
 
-function SideMenu({ isOpen, toggle, activeItem, onSelect }) {
+function SideMenu({ isOpen, toggle, activeItem, onSelect, stats }) {
+  const warningCount = stats?.warningCount || 0;
+  const socketConnected = !!stats?.socketConnected;
+  const menuItems = [
+    { label: "Overview", icon: <FiBarChart2 size={18} /> },
+    { label: "Live Map", icon: <FiMap size={18} /> },
+    { label: "Devices", icon: <FiList size={18} /> },
+    { label: "Alerts", icon: <FiBell size={18} />, badge: warningCount > 0 ? warningCount : null },
+    { label: "History", icon: <FiClock size={18} /> },
+  ];
   return (
     <aside
       style={{
-        width: isOpen ? "230px" : "60px",
-        transition: "width 0.25s ease",
+        width: isOpen ? "240px" : "70px",
+        transition: "width 0.3s ease",
         backgroundColor: "#ffffff",
         height: "100vh",
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
         borderRight: "1px solid #e5e7eb",
+        fontFamily: "'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       }}
     >
-      {/* Top */}
       <div
         style={{
-          height: "60px",
+          height: "70px",
           display: "flex",
           alignItems: "center",
           justifyContent: isOpen ? "space-between" : "center",
-          padding: isOpen ? "0 14px" : "0",
+          padding: isOpen ? "0 16px" : "0",
+          borderBottom: "1px solid #e5e7eb",
         }}
       >
         {isOpen && (
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <FiMapPin size={34} color="#dc2626" />
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <FiMapPin size={32} color="#dc2626" />
             <span
               style={{
-                fontSize: "26px",
-                fontWeight: "800",
+                fontSize: "22px",
+                fontWeight: 800,
                 color: "#0f172a",
+                fontFamily: "'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
               }}
             >
               TrackA
@@ -48,19 +59,25 @@ function SideMenu({ isOpen, toggle, activeItem, onSelect }) {
           </div>
         )}
 
-        <button onClick={toggle} style={iconButtonStyle}>
+        <button
+          onClick={toggle}
+          style={{
+            ...iconButtonStyle,
+            fontSize: "18px",
+          }}
+        >
           {isOpen ? "✕" : "☰"}
         </button>
       </div>
 
-      {/* Menu */}
       <nav
         style={{
-          padding: isOpen ? "14px" : "12px 0",
+          padding: isOpen ? "16px" : "12px 0",
           display: "flex",
           flexDirection: "column",
-          gap: "6px",
+          gap: "8px",
           alignItems: isOpen ? "stretch" : "center",
+          flex: 1,
         }}
       >
         {menuItems.map((item) => {
@@ -75,7 +92,7 @@ function SideMenu({ isOpen, toggle, activeItem, onSelect }) {
                 ...menuItemStyle,
                 ...(isActive ? activeMenuItemStyle : {}),
                 justifyContent: isOpen ? "flex-start" : "center",
-                padding: isOpen ? "10px 12px" : "10px",
+                padding: isOpen ? "12px 14px" : "12px",
               }}
             >
               <span
@@ -83,7 +100,7 @@ function SideMenu({ isOpen, toggle, activeItem, onSelect }) {
                   display: "flex",
                   alignItems: "center",
                   position: "relative",
-                  color: isActive ? "#020617" : "#475569",
+                  color: isActive ? "#020617" : "#64748b",
                 }}
               >
                 {item.icon}
@@ -100,7 +117,6 @@ function SideMenu({ isOpen, toggle, activeItem, onSelect }) {
         })}
       </nav>
 
-      {/* System Status */}
       {isOpen && (
         <div style={statusCardStyle}>
           <div style={statusTitleStyle}>
@@ -109,18 +125,20 @@ function SideMenu({ isOpen, toggle, activeItem, onSelect }) {
           </div>
 
           <div style={statusItemStyle}>
-            <span style={labelStyle}>Active Devices</span>
-            <strong style={valueStyle}>12</strong>
+            <span style={labelStyle}>Total Devices</span>
+            <strong style={valueStyle}>{stats?.totalDevices ?? "—"}</strong>
           </div>
 
           <div style={statusItemStyle}>
             <span style={labelStyle}>Data Sync</span>
-            <strong style={{ ...valueStyle, color: "#16a34a" }}>Live</strong>
+            <strong style={{ ...valueStyle, color: socketConnected ? "#16a34a" : "#dc2626" }}>
+              {socketConnected ? "Live" : "Offline"}
+            </strong>
           </div>
 
           <div style={statusItemStyle}>
-            <span style={labelStyle}>Server Health</span>
-            <strong style={valueStyle}>98%</strong>
+            <span style={labelStyle}>Active Now</span>
+            <strong style={valueStyle}>{stats?.activeNow ?? "—"}</strong>
           </div>
         </div>
       )}
@@ -128,16 +146,6 @@ function SideMenu({ isOpen, toggle, activeItem, onSelect }) {
   );
 }
 
-/* ================= MENU CONFIG ================= */
-const menuItems = [
-  { label: "Overview", icon: <FiBarChart2 size={18} /> },
-  { label: "Live Map", icon: <FiMap size={18} /> },
-  { label: "Asset List", icon: <FiList size={18} /> },
-  { label: "Alerts", icon: <FiBell size={18} />, badge: 3 },
-  { label: "Settings", icon: <FiSettings size={18} /> },
-];
-
-/* ================= STYLES ================= */
 const iconButtonStyle = {
   background: "none",
   border: "none",
