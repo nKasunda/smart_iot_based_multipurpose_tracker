@@ -5,28 +5,14 @@ module.exports = (sequelize, DataTypes) => {
   class Location extends Model {
     static associate(models) {
       Location.belongsTo(models.Tracker, {
-<<<<<<< HEAD
-        foreignKey: 'tracker_id',
-        targetKey: 'device_uid',
-      });
-=======
         foreignKey: 'device_id',
         targetKey: 'device_uid',
         as: 'tracker'
       });
-
->>>>>>> origin/main
     }
   }
 
   Location.init({
-<<<<<<< HEAD
-    tracker_id: DataTypes.STRING,
-    lat: DataTypes.FLOAT,
-    lng: DataTypes.FLOAT,
-    timestamp: DataTypes.DATE
-  }, { sequelize, modelName: 'Location' });
-=======
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
@@ -73,7 +59,6 @@ module.exports = (sequelize, DataTypes) => {
       { fields: ['timestamp'] }
     ]
   });
->>>>>>> origin/main
 
   return Location;
 };

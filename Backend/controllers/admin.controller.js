@@ -28,18 +28,38 @@ exports.provisionDevice = async (req, res) => {
     }
 
     // IMEI should be unique (when present)
+    const imeiText = imei.trim();
+
     const existingImei = await Tracker.findOne({
-      where: { imei: imei.trim() }
+      where: { imei: imeiText }
     });
 
     if (existingImei) {
       return res.status(409).json({ error: "IMEI already in use" });
     }
 
+    // Prevent a device ID from being equal to any existing IMEI
+    const reservedDeviceId = await Tracker.findOne({
+      where: { imei: device_id.trim() }
+    });
+
+    if (reservedDeviceId) {
+      return res.status(409).json({ error: "Device ID cannot match an existing IMEI" });
+    }
+
+    // Prevent an IMEI from matching any existing device ID
+    const reservedImei = await Tracker.findOne({
+      where: { device_uid: imeiText }
+    });
+
+    if (reservedImei) {
+      return res.status(409).json({ error: "IMEI cannot match an existing Device ID" });
+    }
+
     // Create new device with "available" status
     const tracker = await Tracker.create({
       device_uid: device_id.trim(),
-      imei: imei.trim(),
+      imei: imeiText,
       status: "available",
       lastSeen: null,
       battery: null
@@ -61,32 +81,92 @@ exports.provisionDevice = async (req, res) => {
  */
 exports.updateDevice = async (req, res) => {
   try {
-    const { device_id } = req.params;
-    const { imei } = req.body || {};
-
-    if (!imei || !String(imei).trim()) {
-      return res.status(400).json({ error: "IMEI is required" });
-    }
+    const { device_id: currentDeviceId } = req.params;
+    const { device_uid, imei, ownerEmail } = req.body || {};
 
     const device = await Tracker.findOne({
-      where: { device_uid: device_id }
+      where: { device_uid: currentDeviceId }
     });
 
     if (!device) {
       return res.status(404).json({ error: "Device not found" });
     }
 
-    const imeiText = String(imei).trim();
+    const updateFields = {};
 
-    const existingImei = await Tracker.findOne({
-      where: { imei: imeiText }
-    });
+    if (device_uid !== undefined && String(device_uid).trim()) {
+      const newDeviceId = String(device_uid).trim();
+      if (newDeviceId !== device.device_uid) {
+        const existingDevice = await Tracker.findOne({
+          where: { device_uid: newDeviceId }
+        });
+        if (existingDevice) {
+          return res.status(409).json({ error: "Device ID already in use" });
+        }
 
-    if (existingImei && existingImei.device_uid !== device.device_uid) {
-      return res.status(409).json({ error: "IMEI already in use" });
+        const deviceIdAsImei = await Tracker.findOne({
+          where: { imei: newDeviceId }
+        });
+        if (deviceIdAsImei) {
+          return res.status(409).json({ error: "Device ID cannot match an existing IMEI" });
+        }
+
+        updateFields.device_uid = newDeviceId;
+      }
     }
 
-    await device.update({ imei: imeiText });
+    if (imei !== undefined) {
+      const imeiText = String(imei).trim();
+      if (!imeiText) {
+        return res.status(400).json({ error: "IMEI cannot be empty" });
+      }
+      if (imeiText !== device.imei) {
+        const existingImei = await Tracker.findOne({
+          where: { imei: imeiText }
+        });
+        if (existingImei && existingImei.device_uid !== device.device_uid) {
+          return res.status(409).json({ error: "IMEI already in use" });
+        }
+
+        const imeiAsDeviceId = await Tracker.findOne({
+          where: { device_uid: imeiText }
+        });
+        if (imeiAsDeviceId) {
+          return res.status(409).json({ error: "IMEI cannot match an existing Device ID" });
+        }
+
+        updateFields.imei = imeiText;
+      }
+    }
+
+    if (ownerEmail !== undefined) {
+      const ownerText = String(ownerEmail).trim();
+      if (!ownerText) {
+        updateFields.userId = null;
+        updateFields.status = "available";
+      } else {
+        const owner = await User.findOne({ where: { email: ownerText } });
+        if (!owner) {
+          return res.status(404).json({ error: "Owner not found" });
+        }
+        updateFields.userId = owner.id;
+        updateFields.status = "assigned";
+      }
+    }
+
+    if (Object.keys(updateFields).length === 0) {
+      return res.status(400).json({ error: "No valid fields to update" });
+    }
+
+    const oldDeviceId = device.device_uid;
+    await device.update(updateFields);
+
+    if (updateFields.device_uid && updateFields.device_uid !== oldDeviceId) {
+      await Location.update(
+        { device_id: updateFields.device_uid },
+        { where: { device_id: oldDeviceId } }
+      );
+    }
 
     return res.json({
       message: "Device updated",

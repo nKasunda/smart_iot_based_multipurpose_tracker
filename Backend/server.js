@@ -1,13 +1,5 @@
-require('dotenv').config();
+require("dotenv").config();
 const express = require("express");
-<<<<<<< HEAD
-const http = require("http");
-const { sequelize } = require("./models");
-const trackerRoutes = require("./routes/tracker.routes");
-const cors = require("cors");
-const app = express();
-
-=======
 const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
 const http = require("http");
@@ -29,25 +21,16 @@ const limiter = rateLimit({
   max: 100, // 100 req/min per IP
   message: "Too many GPS pings, slow down!",
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
 });
 
->>>>>>> origin/main
 // Socket.io setup
 const server = http.createServer(app);
 const io = require("socket.io")(server, {
-  cors: { origin: "*" }
+  cors: { origin: "*" },
 });
 app.set("io", io); // make io accessible in controllers
 
-<<<<<<< HEAD
-app.use(cors());
-app.use(express.json());
-app.use("/api/tracker", trackerRoutes);
-
-const PORT = process.env.PORT || 5000;
-
-=======
 // Socket auth: clients should pass { auth: { token } } or Authorization header.
 const jwt = require("jsonwebtoken");
 io.use((socket, next) => {
@@ -71,7 +54,7 @@ io.use((socket, next) => {
 
 app.use(helmet());
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: "10mb" }));
 // Some SMS forwarder apps send `application/x-www-form-urlencoded` bodies.
 // Accept both JSON and urlencoded to avoid `req.body` being undefined.
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
@@ -81,25 +64,19 @@ app.use("/api/user", userRoutes);
 app.use("/api/tracker/ingest", limiter);
 app.use("/api/tracker", trackerRoutes);
 
-app.get('/health', (req, res) => res.status(200).json({ status: 'OK', timestamp: new Date() }));
+app.get("/health", (req, res) =>
+  res.status(200).json({ status: "OK", timestamp: new Date() })
+);
 
 const PORT = process.env.PORT || 5000;
 
->>>>>>> origin/main
 server.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
   try {
     await sequelize.authenticate();
     console.log("Database connected!");
-<<<<<<< HEAD
-  } catch (err) {
-    console.error("DB connection error:", err);
-  }
-});
-=======
     await ensureSchema(sequelize);
   } catch (err) {
     console.error("DB connection error:", err);
   }
 });
->>>>>>> origin/main

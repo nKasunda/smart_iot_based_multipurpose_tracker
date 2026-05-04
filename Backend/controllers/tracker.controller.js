@@ -1,33 +1,84 @@
-// tracker.controller.js
-const { Tracker, Location } = require("../models");
+const { Tracker, Location, User } = require("../models");
 const { Op } = require("sequelize");
 
+const buildAccessWhere = (user) => {
+  if (!user || user.role === "admin") return {};
+  return {
+    userId: user.id,
+  };
+};
+
+/**
+ * Normalize tracker identifiers
+ */
 const normalizeTrackerKey = (value) => {
   if (!value) return null;
+
   let text = String(value).trim();
   if (!text) return null;
+
   text = text.toUpperCase();
   text = text.replace(/^ID[:=]?/i, "").trim();
+
   return text.startsWith("TRK-") ? text : `TRK-${text}`;
 };
 
+const resolveTrackerByAnyId = async (rawId) => {
+  if (!rawId) return null;
+  const id = String(rawId).trim();
+  if (!id) return null;
+
+  const byUid = await Tracker.findOne({ where: { device_uid: id } });
+  if (byUid) return byUid;
+
+  const byImei = await Tracker.findOne({ where: { imei: id } });
+  if (byImei) return byImei;
+
+  const normalized = normalizeTrackerKey(id);
+  if (normalized) {
+    const byNorm = await Tracker.findOne({
+      where: {
+        device_uid: {
+          [Op.in]: [normalized, normalized.replace(/^TRK-/, "")],
+        },
+      },
+    });
+    if (byNorm) return byNorm;
+  }
+
+  return null;
+};
+
+/**
+ * Build possible tracker key matches
+ */
 const buildTrackerCandidateKeys = (payload) => {
   const set = new Set();
+
   const add = (value) => {
     const normalized = normalizeTrackerKey(value);
     if (!normalized) return;
+
     set.add(normalized);
+
     const raw = normalized.replace(/^TRK-/, "");
     if (raw) set.add(raw);
-    if (/^\d+$/.test(raw)) set.add(`TRK-${raw.padStart(3, "0")}`);
+
+    if (/^\d+$/.test(raw)) {
+      set.add(`TRK-${raw.padStart(3, "0")}`);
+    }
   };
 
   add(payload.sender);
   add(payload.trackerId);
   add(payload.tracker_id);
+  add(payload.imei);
+  add(payload.device_id);
 
   if (payload.message) {
-    const regex = /(?:ID[:=]?|TRACKERID[:=]?|TRACKER[:=]?|DEV[:=]?)[\s]*([A-Za-z0-9-]+)/gi;
+    const regex =
+      /(?:ID[:=]?|TRACKERID[:=]?|TRACKER[:=]?|DEV[:=]?)[\s]*([A-Za-z0-9-]+)/gi;
+
     let match;
     while ((match = regex.exec(String(payload.message)))) {
       add(match[1]);
@@ -37,113 +88,229 @@ const buildTrackerCandidateKeys = (payload) => {
   return Array.from(set);
 };
 
+/**
+ * Find tracker from payload
+ */
 const findTrackerForPayload = async (payload) => {
   const keys = buildTrackerCandidateKeys(payload);
+
   if (!keys.length) return null;
+
   return Tracker.findOne({
     where: {
-      device_uid: {
-        [Op.in]: keys,
-      },
+      [Op.or]: [
+        {
+          device_uid: {
+            [Op.in]: keys,
+          },
+        },
+        {
+          imei: {
+            [Op.in]: keys,
+          },
+        },
+      ],
     },
   });
 };
 
 /**
-* Ingest SMS payload from tracker
-*/
+ * Normalize and unwrap nested payloads (A9G / ESP32 / forwarders)
+ */
+const normalizePayload = (reqBody) => {
+  let parsed = reqBody;
+
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      return null;
+    }
+  }
+
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+
+  const unwrapKeys = ["key", "payload", "data", "body"];
+
+  for (const k of unwrapKeys) {
+    if (!Object.prototype.hasOwnProperty.call(parsed, k)) continue;
+
+    const v = parsed[k];
+
+    if (v && typeof v === "object") {
+      parsed = v;
+      break;
+    }
+
+    if (typeof v === "string") {
+      const t = v.trim();
+
+      if (t.startsWith("{") || t.startsWith("[")) {
+        try {
+          parsed = JSON.parse(t);
+          break;
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }
+
+  // final safety extraction
+  if (typeof parsed === "string") {
+    const start = parsed.indexOf("{");
+    const end = parsed.lastIndexOf("}");
+
+    if (start !== -1 && end !== -1 && end > start) {
+      try {
+        parsed = JSON.parse(parsed.slice(start, end + 1));
+      } catch {
+        return null;
+      }
+    }
+  }
+
+  return parsed;
+};
+
+/**
+ * INGEST PAYLOAD
+ */
 exports.ingestSMS = async (req, res) => {
   try {
-    const { message, sender } = req.body;
+    console.log("Incoming payload:", req.body);
 
-    if (!message || !sender) {
-      console.log("Missing sender or message");
-      return res.status(400).json({ error: "Invalid payload" });
+    const parsed = normalizePayload(req.body);
+
+    if (!parsed) {
+      return res.status(400).json({ error: "Invalid payload format" });
     }
 
-    console.log("Received SMS from", sender, ":", message);
+    console.log("Normalized payload:", parsed);
 
-    // Flexible regex: find LAT, LON, TS anywhere in the message
-    const regex = /LAT[:=]([-\d.]+).*LON[:=]([-\d.]+).*TS[:=]?(\d+)/i;
-    const match = message.match(regex);
+    const sender =
+      parsed.sender ||
+      parsed.imei ||
+      parsed.device_id ||
+      parsed.trackerId ||
+      "UNKNOWN";
 
-    if (!match) {
-      console.log("Invalid format:", message);
-      return res.sendStatus(200); // do not throw error for bad SMS
+    const lat = parsed.lat;
+    const lng = parsed.lng;
+
+    if (lat === undefined || lng === undefined) {
+      return res.sendStatus(200);
     }
 
-    const lat = parseFloat(match[1]);
-    const lng = parseFloat(match[2]);
-    const ts = new Date(parseInt(match[3]) * 1000); // TS in seconds
+    const ts = new Date();
 
-    // Find or create tracker
-    let tracker = await Tracker.findOne({ where: { device_uid: sender } });
+    // Find tracker (by device_uid or imei), else create a new one.
+    let tracker = await resolveTrackerByAnyId(sender);
+    if (!tracker) tracker = await findTrackerForPayload(parsed);
+
     if (!tracker) {
-      tracker = await Tracker.create({ device_uid: sender });
-      console.log("Created new tracker:", sender);
+      tracker = await Tracker.create({
+        device_uid: sender,
+      });
     }
 
-    // Save location
-    const location = await Location.create({
-      tracker_id: tracker.device_uid,
+    // Update device metadata (best-effort)
+    if (parsed.name !== undefined && parsed.name !== null) tracker.name = String(parsed.name);
+    if (parsed.type !== undefined && parsed.type !== null) tracker.type = String(parsed.type);
+    if (parsed.imei !== undefined && parsed.imei !== null) tracker.imei = String(parsed.imei);
+    if (parsed.battery !== undefined && parsed.battery !== null && parsed.battery !== "") {
+      const battery = Number(parsed.battery);
+      if (Number.isFinite(battery)) tracker.battery = Math.round(battery);
+    }
+    if (parsed.signal !== undefined && parsed.signal !== null && parsed.signal !== "") {
+      const signal = Number(parsed.signal);
+      if (Number.isFinite(signal)) tracker.signalStrength = Math.round(signal);
+    }
+
+    // FIXED: correct column mapping (IMPORTANT FIX)
+    await Location.create({
+      device_id: tracker.device_uid,
       lat,
       lng,
       timestamp: ts,
+      battery: tracker.battery ?? null,
     });
-    console.log(`Saved location for tracker ${sender}: ${lat}, ${lng}`);
 
-    // Update tracker's lastSeen
     tracker.lastSeen = ts;
     await tracker.save();
 
-    // Emit real-time update via Socket.io
+    // Socket update
     const io = req.app.get("io");
+
     if (io) {
+      const location = {
+        device_id: tracker.device_uid,
+        device_uid: tracker.device_uid,
+        imei: tracker.imei ?? null,
+        name: tracker.name ?? null,
+        lat,
+        lng,
+        timestamp: ts,
+        battery: tracker.battery ?? null,
+        signal: tracker.signalStrength ?? null,
+        signalStrength: tracker.signalStrength ?? null,
+      };
+
+      // Frontend dashboard listens for this event
+      io.emit("location:update", { location });
+
+      // Backward-compat for older clients
       io.emit("tracker-update", {
         trackerId: tracker.device_uid,
         lat,
         lng,
         timestamp: ts,
+        battery: tracker.battery ?? null,
+        signal: tracker.signalStrength ?? null,
+        location,
       });
-      console.log("Emitted tracker-update via Socket.io");
-    } else {
-      console.log("Socket.io not initialized");
     }
 
-    res.sendStatus(200);
+    return res.sendStatus(200);
   } catch (err) {
     console.error("ingestSMS error:", err);
-    res.sendStatus(500);
+    return res.sendStatus(500);
   }
 };
 
 /**
-* Get the latest location for all trackers
-*/
+ * Latest locations
+ */
 exports.latest = async (req, res) => {
   try {
+    const accessWhere = buildAccessWhere(req.user);
     const trackers = await Tracker.findAll({
-      attributes: ["device_uid", "lastSeen"],
+      attributes: ["device_uid", "name", "imei", "type", "battery", "signalStrength", "lastSeen"],
+      where: accessWhere,
       order: [["device_uid", "ASC"]],
     });
 
-    const trackerIds = trackers.map((tracker) => tracker.device_uid);
+    const trackerIds = trackers.map((t) => t.device_uid);
+
     const locations = trackerIds.length
       ? await Location.findAll({
           where: {
-            tracker_id: {
+            device_id: {
               [Op.in]: trackerIds,
             },
           },
-          attributes: ["tracker_id", "lat", "lng", "timestamp"],
+          attributes: ["device_id", "lat", "lng", "timestamp"],
           order: [["timestamp", "DESC"]],
         })
       : [];
 
     const latestByTracker = new Map();
-    for (const location of locations) {
-      if (!latestByTracker.has(location.tracker_id)) {
-        latestByTracker.set(location.tracker_id, location);
+
+    for (const loc of locations) {
+      if (!latestByTracker.has(loc.device_id)) {
+        latestByTracker.set(loc.device_id, loc);
       }
     }
 
@@ -151,7 +318,14 @@ exports.latest = async (req, res) => {
       const loc = latestByTracker.get(tracker.device_uid);
 
       return {
+        device_id: tracker.device_uid,
+        device_uid: tracker.device_uid,
         trackerId: tracker.device_uid,
+        imei: tracker.imei ?? null,
+        name: tracker.name ?? null,
+        type: tracker.type ?? null,
+        battery: tracker.battery ?? null,
+        signalStrength: tracker.signalStrength ?? null,
         lat: loc ? loc.lat : null,
         lng: loc ? loc.lng : null,
         timestamp: loc ? loc.timestamp : tracker.lastSeen,
@@ -166,24 +340,29 @@ exports.latest = async (req, res) => {
 };
 
 /**
-* Get overview stats for the dashboard cards
-*/
+ * Stats
+ */
 exports.stats = async (req, res) => {
   try {
     const now = new Date();
+
     const activeThreshold = new Date(now.getTime() - 5 * 60 * 1000);
     const warningThreshold = new Date(now.getTime() - 15 * 60 * 1000);
 
-    const totalAssets = await Tracker.count();
+    const accessWhere = buildAccessWhere(req.user);
+    const totalDevices = await Tracker.count({ where: accessWhere });
+    const totalLocations = await Location.count();
+
     const activeNow = await Tracker.count({
       where: {
-        lastSeen: {
-          [Op.gte]: activeThreshold,
-        },
+        ...accessWhere,
+        lastSeen: { [Op.gte]: activeThreshold },
       },
     });
+
     const warnings = await Tracker.count({
       where: {
+        ...accessWhere,
         lastSeen: {
           [Op.lt]: warningThreshold,
         },
@@ -191,7 +370,10 @@ exports.stats = async (req, res) => {
     });
 
     res.json({
-      totalAssets,
+      totalDevices,
+      totalLocations,
+      // Backward-compat fields (older code used "assets")
+      totalAssets: totalDevices,
       activeNow,
       warnings,
       inTransit: activeNow,
@@ -203,30 +385,169 @@ exports.stats = async (req, res) => {
 };
 
 /**
-* Get simple recent alerts derived from tracker activity
-*/
+ * Alerts
+ */
 exports.alerts = async (req, res) => {
   try {
+    const accessWhere = buildAccessWhere(req.user);
     const warningThreshold = new Date(Date.now() - 15 * 60 * 1000);
-    const staleTrackers = await Tracker.findAll({
+    const lowBatteryThreshold = 20;
+
+    const inactiveDevices = await Tracker.findAll({
       where: {
+        ...accessWhere,
         lastSeen: {
           [Op.lt]: warningThreshold,
         },
       },
       order: [["lastSeen", "ASC"]],
-      limit: 10,
+      limit: 50,
     });
 
-    const alerts = staleTrackers.map((tracker) => ({
-      device: tracker.device_uid,
-      type: "Tracker has not reported recently",
-      time: tracker.lastSeen,
-    }));
+    const lowBatteryDevices = await Tracker.findAll({
+      where: {
+        ...accessWhere,
+        battery: {
+          [Op.ne]: null,
+          [Op.lte]: lowBatteryThreshold,
+        },
+      },
+      order: [
+        ["battery", "ASC"],
+        ["lastSeen", "ASC"],
+      ],
+      limit: 50,
+    });
 
-    res.json(alerts);
+    const items = [
+      ...(lowBatteryDevices || []).map((d) => ({
+        type: "low_battery",
+        device_uid: d.device_uid,
+        imei: d.imei ?? null,
+        battery: d.battery ?? null,
+        lastSeen: d.lastSeen ?? null,
+      })),
+      ...(inactiveDevices || []).map((d) => ({
+        type: "inactive",
+        device_uid: d.device_uid,
+        imei: d.imei ?? null,
+        battery: d.battery ?? null,
+        lastSeen: d.lastSeen ?? null,
+      })),
+    ];
+
+    res.json({
+      lowBatteryDevices,
+      inactiveDevices,
+      items,
+    });
   } catch (err) {
     console.error("alerts error:", err);
     res.sendStatus(500);
+  }
+};
+
+/**
+ * Devices list (role-aware)
+ */
+exports.devices = async (req, res) => {
+  try {
+    const accessWhere = buildAccessWhere(req.user);
+    const include =
+      req.user?.role === "admin"
+        ? [{ model: User, as: "user", attributes: ["id", "name", "email"] }]
+        : [];
+
+    const devices = await Tracker.findAll({
+      where: accessWhere,
+      include,
+      order: [["device_uid", "ASC"]],
+    });
+
+    return res.json(devices);
+  } catch (err) {
+    console.error("devices error:", err);
+    return res.sendStatus(500);
+  }
+};
+
+/**
+ * Register a device (admin only)
+ */
+exports.registerDevice = async (req, res) => {
+  try {
+    const device_uid = String(req.body?.device_id || req.body?.device_uid || "").trim();
+    if (!device_uid) return res.status(400).json({ error: "device_id is required" });
+
+    const type = req.body?.type ? String(req.body.type) : "unknown";
+    const userId = req.body?.userId !== undefined && req.body?.userId !== null ? Number(req.body.userId) : null;
+
+    const [device, created] = await Tracker.findOrCreate({
+      where: { device_uid },
+      defaults: {
+        device_uid,
+        type,
+        userId: Number.isFinite(userId) ? userId : null,
+        status: Number.isFinite(userId) ? "assigned" : "available",
+      },
+    });
+
+    if (!created) {
+      if (req.body?.type !== undefined) device.type = type;
+      if (Number.isFinite(userId)) {
+        device.userId = userId;
+        device.status = "assigned";
+      }
+      await device.save();
+    }
+
+    return res.json(device);
+  } catch (err) {
+    console.error("registerDevice error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * Location history for a device (role-aware)
+ * Supports:
+ *  - GET /api/tracker/history?device_id=...&from=...&to=...&limit=...
+ *  - GET /api/tracker/:device_id/history
+ */
+exports.history = async (req, res) => {
+  try {
+    const rawDeviceId = String(req.query?.device_id || req.params?.device_id || "").trim();
+    if (!rawDeviceId) return res.status(400).json({ error: "device_id is required" });
+
+    const tracker = await resolveTrackerByAnyId(rawDeviceId);
+    if (!tracker) return res.status(404).json({ error: "Device not found" });
+
+    if (req.user?.role !== "admin") {
+      const allowed = tracker.userId === null || tracker.userId === req.user?.id;
+      if (!allowed) return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const where = { device_id: tracker.device_uid };
+    const from = req.query?.from ? new Date(String(req.query.from)) : null;
+    const to = req.query?.to ? new Date(String(req.query.to)) : null;
+
+    if (from && Number.isFinite(from.getTime())) where.timestamp = { ...(where.timestamp || {}), [Op.gte]: from };
+    if (to && Number.isFinite(to.getTime())) where.timestamp = { ...(where.timestamp || {}), [Op.lte]: to };
+
+    let limit = req.query?.limit ? Number(req.query.limit) : 2000;
+    if (!Number.isFinite(limit) || limit <= 0) limit = 2000;
+    limit = Math.min(limit, 5000);
+
+    const rows = await Location.findAll({
+      where,
+      attributes: ["device_id", "lat", "lng", "speed", "battery", "timestamp"],
+      order: [["timestamp", "DESC"]],
+      limit,
+    });
+
+    return res.json(rows);
+  } catch (err) {
+    console.error("history error:", err);
+    return res.sendStatus(500);
   }
 };

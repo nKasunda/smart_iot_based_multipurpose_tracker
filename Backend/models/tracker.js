@@ -5,11 +5,6 @@ module.exports = (sequelize, DataTypes) => {
   class Tracker extends Model {
     static associate(models) {
       Tracker.hasMany(models.Location, {
-<<<<<<< HEAD
-        foreignKey: 'tracker_id',
-        sourceKey: 'device_uid',
-      });
-=======
         foreignKey: 'device_id',
         sourceKey: 'device_uid',
         as: 'locations'
@@ -19,17 +14,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'userId',
         as: 'user'
       });
-
->>>>>>> origin/main
     }
   }
 
   Tracker.init({
-<<<<<<< HEAD
-    device_uid: { type: DataTypes.STRING, allowNull: false, unique: true },
-    lastSeen: DataTypes.DATE
-  }, { sequelize, modelName: 'Tracker' });
-=======
     device_uid: {
       type: DataTypes.STRING,
       primaryKey: false,
@@ -90,7 +78,6 @@ module.exports = (sequelize, DataTypes) => {
     modelName: 'Tracker',
     timestamps: true
   });
->>>>>>> origin/main
 
   return Tracker;
 };
