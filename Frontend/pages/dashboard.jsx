@@ -7,6 +7,8 @@ import DashboardHeader from "../components/DashboardHeader";
 
 import Overview from "../components/DashboardSections/Overview";
 import LiveMap from "../components/DashboardSections/LiveMap";
+
+
 import Devices from "../components/DashboardSections/Devices";
 import Alerts from "../components/DashboardSections/Alerts";
 import History from "../components/DashboardSections/History";
@@ -19,6 +21,7 @@ import { getToken } from "../lib/tokenStorage";
 const sectionComponents = {
   Overview,
   "Live Map": LiveMap,
+
   Devices,
   Alerts,
   History,

@@ -49,6 +49,48 @@ const resolveTrackerByAnyId = async (rawId) => {
   return null;
 };
 
+const cleanImei = (value) => {
+  if (value === undefined || value === null) return null;
+
+  const text = String(value)
+    .trim()
+    .replace(/^IMEI[:=]?/i, "")
+    .trim();
+
+  return text || null;
+};
+
+const extractImeiFromPayload = (payload) => {
+  const direct = cleanImei(payload?.imei || payload?.IMEI);
+  if (direct) return direct;
+
+  const message = payload?.message || payload?.sms || payload?.text;
+  if (typeof message !== "string") return null;
+
+  const match = message.match(/\bIMEI\s*[:=]\s*([A-Za-z0-9-]+)/i);
+  return cleanImei(match?.[1]);
+};
+
+const extractPayloadValue = (payload, keys, pattern) => {
+  for (const key of keys) {
+    const value = payload?.[key];
+    if (value !== undefined && value !== null && value !== "") return value;
+  }
+
+  const message = payload?.message || payload?.sms || payload?.text;
+  if (typeof message !== "string") return undefined;
+
+  return message.match(pattern)?.[1];
+};
+
+const extractNumber = (payload, keys, pattern) => {
+  const value = extractPayloadValue(payload, keys, pattern);
+  if (value === undefined || value === null || value === "") return null;
+
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
+
 /**
  * Build possible tracker key matches
  */
@@ -190,50 +232,47 @@ exports.ingestSMS = async (req, res) => {
 
     console.log("Normalized payload:", parsed);
 
-    const sender =
-      parsed.sender ||
-      parsed.imei ||
-      parsed.device_id ||
-      parsed.trackerId ||
-      "UNKNOWN";
+    const imei = extractImeiFromPayload(parsed);
 
-    const lat = parsed.lat;
-    const lng = parsed.lng;
+    if (!imei) {
+      return res.status(400).json({ error: "IMEI is required" });
+    }
 
-    if (lat === undefined || lng === undefined) {
+    const tracker = await Tracker.findOne({ where: { imei } });
+
+    if (!tracker) {
+      console.warn("Rejected ingest for unregistered IMEI:", imei);
+      return res.status(403).json({ error: "Invalid IMEI" });
+    }
+
+    const lat = extractNumber(parsed, ["lat", "latitude"], /\bLAT(?:ITUDE)?\s*[:=]\s*(-?\d+(?:\.\d+)?)/i);
+    const lng = extractNumber(parsed, ["lng", "lon", "longitude"], /\b(?:LNG|LON|LONGITUDE)\s*[:=]\s*(-?\d+(?:\.\d+)?)/i);
+
+    if (lat === null || lng === null) {
       return res.sendStatus(200);
     }
 
     const ts = new Date();
 
-    // Find tracker (by device_uid or imei), else create a new one.
-    let tracker = await resolveTrackerByAnyId(sender);
-    if (!tracker) tracker = await findTrackerForPayload(parsed);
-
-    if (!tracker) {
-      tracker = await Tracker.create({
-        device_uid: sender,
-      });
-    }
-
     // Update device metadata (best-effort)
     if (parsed.name !== undefined && parsed.name !== null) tracker.name = String(parsed.name);
     if (parsed.type !== undefined && parsed.type !== null) tracker.type = String(parsed.type);
-    if (parsed.imei !== undefined && parsed.imei !== null) tracker.imei = String(parsed.imei);
-    if (parsed.battery !== undefined && parsed.battery !== null && parsed.battery !== "") {
-      const battery = Number(parsed.battery);
-      if (Number.isFinite(battery)) tracker.battery = Math.round(battery);
+    const batteryValue = extractNumber(parsed, ["battery", "bat"], /\b(?:BAT|BATTERY)\s*[:=]\s*(\d+(?:\.\d+)?)/i);
+    if (batteryValue !== null) {
+      tracker.battery = Math.round(batteryValue);
     }
-    if (parsed.signal !== undefined && parsed.signal !== null && parsed.signal !== "") {
-      const signal = Number(parsed.signal);
-      if (Number.isFinite(signal)) tracker.signalStrength = Math.round(signal);
+    const signalValue = extractNumber(parsed, ["signal", "signalStrength", "signal_strength"], /\b(?:SIGNAL|SIG|RSSI)\s*[:=]\s*(-?\d+(?:\.\d+)?)/i);
+    if (signalValue !== null) {
+      tracker.signalStrength = Math.round(signalValue);
     }
+    const speed = extractNumber(parsed, ["speed"], /\b(?:SPEED|SPD)\s*[:=]\s*(-?\d+(?:\.\d+)?)/i);
 
     // FIXED: correct column mapping (IMPORTANT FIX)
     await Location.create({
       device_id: tracker.device_uid,
       lat,
       lng,
+      speed: speed ?? 0,
       timestamp: ts,
       battery: tracker.battery ?? null,
     });
@@ -252,6 +291,7 @@ exports.ingestSMS = async (req, res) => {
         name: tracker.name ?? null,
         lat,
         lng,
+        speed: speed ?? 0,
         timestamp: ts,
         battery: tracker.battery ?? null,
         signal: tracker.signalStrength ?? null,
@@ -350,8 +390,22 @@ exports.stats = async (req, res) => {
     const warningThreshold = new Date(now.getTime() - 15 * 60 * 1000);
 
     const accessWhere = buildAccessWhere(req.user);
-    const totalDevices = await Tracker.count({ where: accessWhere });
-    const totalLocations = await Location.count();
+    const trackerIds = await Tracker.findAll({
+      attributes: ["device_uid"],
+      where: accessWhere,
+      raw: true,
+    }).then((rows) => rows.map((row) => row.device_uid));
+
+    const totalDevices = trackerIds.length;
+    const totalLocations = trackerIds.length
+      ? await Location.count({
+          where: {
+            device_id: {
+              [Op.in]: trackerIds,
+            },
+          },
+        })
+      : 0;
 
     const activeNow = await Tracker.count({
       where: {
