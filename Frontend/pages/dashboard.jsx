@@ -28,10 +28,11 @@ const DASHBOARD_SECTION_KEY = "dashboard.activeSection";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const auth = useAuth();
+  const auth   = useAuth();
 
-  const [menuOpen, setMenuOpen] = useState(true);
-  const [activeSection, setActiveSection] = useState(() => {
+  const [menuOpen,         setMenuOpen]         = useState(true);
+  const [profileOpen,      setProfileOpen]      = useState(false);
+  const [activeSection,    setActiveSection]    = useState(() => {
     if (typeof window === "undefined") return "Overview";
     try {
       return localStorage.getItem(DASHBOARD_SECTION_KEY) || "Overview";
@@ -40,11 +41,11 @@ export default function DashboardPage() {
     }
   });
 
-  const [devices, setDevices] = useState([]);
-  const [latest, setLatest] = useState([]);
-  const [stats, setStats] = useState(null);
-  const [alerts, setAlerts] = useState(null);
-  const [socketConnected, setSocketConnected] = useState(false);
+  const [devices,          setDevices]          = useState([]);
+  const [latest,           setLatest]           = useState([]);
+  const [stats,            setStats]            = useState(null);
+  const [alerts,           setAlerts]           = useState(null);
+  const [socketConnected,  setSocketConnected]  = useState(false);
   const [selectedDeviceId, setSelectedDeviceId] = useState("");
 
   const socketRef = useRef(null);
@@ -56,17 +57,13 @@ export default function DashboardPage() {
 
   const latestByDevice = useMemo(() => {
     const map = {};
-    (latest || []).forEach((row) => {
-      map[row.device_id] = row;
-    });
+    (latest || []).forEach((row) => { map[row.device_id] = row; });
     return map;
   }, [latest]);
 
-  // Role-based data filtering: users see only their devices, admins see all
   const filteredDevices = useMemo(() => {
     if (!auth.user) return devices;
     if (auth.user.role === "admin") return devices;
-    // For non-admin users, filter devices assigned to them
     return devices.filter((d) => d.userId === auth.user.id || !d.userId);
   }, [devices, auth.user]);
 
@@ -87,20 +84,17 @@ export default function DashboardPage() {
   }, [filteredDevices]);
 
   const warningCount = useMemo(() => {
-    const low = alerts?.lowBatteryDevices?.length || 0;
-    const inactive = alerts?.inactiveDevices?.length || 0;
+    const low      = alerts?.lowBatteryDevices?.length || 0;
+    const inactive = alerts?.inactiveDevices?.length  || 0;
     return low + inactive;
   }, [alerts]);
 
   useEffect(() => {
     try {
       localStorage.setItem(DASHBOARD_SECTION_KEY, activeSection);
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   }, [activeSection]);
 
-  // Auto-select a valid device
   useEffect(() => {
     const list = filteredDevices || [];
     if (!list.length) return;
@@ -117,10 +111,10 @@ export default function DashboardPage() {
       getStats(),
       getAlerts(),
     ]);
-    setDevices(d || []);
-    setLatest(l || []);
-    setStats(s || null);
-    setAlerts(a || null);
+    setDevices(d  || []);
+    setLatest(l   || []);
+    setStats(s    || null);
+    setAlerts(a   || null);
   };
 
   useEffect(() => {
@@ -142,15 +136,15 @@ export default function DashboardPage() {
     });
 
     socketRef.current = socket;
-    socket.on("connect", () => setSocketConnected(true));
-    socket.on("disconnect", () => setSocketConnected(false));
+    socket.on("connect",       () => setSocketConnected(true));
+    socket.on("disconnect",    () => setSocketConnected(false));
     socket.on("connect_error", () => setSocketConnected(false));
 
     socket.on("location:update", ({ location }) => {
       if (!location?.device_id) return;
       setLatest((prev) => {
         const list = Array.isArray(prev) ? [...prev] : [];
-        const idx = list.findIndex((x) => x.device_id === location.device_id);
+        const idx  = list.findIndex((x) => x.device_id === location.device_id);
         if (idx >= 0) list[idx] = location;
         else list.unshift(location);
         return list;
@@ -165,42 +159,53 @@ export default function DashboardPage() {
 
   const ActiveComponent = sectionComponents[activeSection] || Overview;
 
-  if (auth.booting) return null;
+  if (auth.booting)   return null;
   if (!auth.isAuthed) return null;
 
   return (
     <div style={{ display: "flex", height: "100vh" }}>
+
+      {/* ── Sidebar ───────────────────────────────────────── */}
       <SideMenu
         isOpen={menuOpen}
         toggle={() => setMenuOpen(!menuOpen)}
         activeItem={activeSection}
-        onSelect={setActiveSection}
         stats={{
           totalDevices: stats?.totalDevices ?? devices.length,
           activeNow,
           warningCount,
           socketConnected,
         }}
+        onSelect={(item) => {
+          if (item === "Settings") {
+            setProfileOpen(v => !v);   // sidebar Settings toggles dropdown
+          } else {
+            setActiveSection(item);
+            setProfileOpen(false);     // close dropdown when switching sections
+          }
+        }}
       />
 
+      {/* ── Main area ─────────────────────────────────────── */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+
         <DashboardHeader
           user={auth.user}
           socketConnected={socketConnected}
+          profileOpen={profileOpen}
+          onToggleProfile={() => setProfileOpen(v => !v)}
           onLogout={() => {
             auth.logout();
             router.push("/");
           }}
         />
 
-        <main
-          style={{
-            flex: 1,
-            padding: "24px",
-            backgroundColor: "#f8fafc",
-            overflowY: "auto",
-          }}
-        >
+        <main style={{
+          flex: 1,
+          padding: "24px",
+          backgroundColor: "#f8fafc",
+          overflowY: "auto",
+        }}>
           <ActiveComponent
             user={auth.user}
             devices={filteredDevices}

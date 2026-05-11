@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { FiTrash2 } from "react-icons/fi";
 import { getHistory } from "../../lib/api";
+import { useSettings } from "../../context/SettingsContext";
 
 const TrackerLeafletMap = dynamic(() => import("../TrackerLeafletMap"), { ssr: false });
 
@@ -12,13 +13,37 @@ function isoFromDatetimeLocal(value) {
   return dt.toISOString();
 }
 
+// ── formats a date string using the user's chosen dateFormat ──
+function formatDate(isoString, dateFormat) {
+  if (!isoString) return "";
+  const dt = new Date(isoString);
+  if (Number.isNaN(dt.getTime())) return isoString;
+
+  const dd   = String(dt.getDate()).padStart(2, "0");
+  const mm   = String(dt.getMonth() + 1).padStart(2, "0");
+  const yyyy = dt.getFullYear();
+  const hh   = String(dt.getHours()).padStart(2, "0");
+  const min  = String(dt.getMinutes()).padStart(2, "0");
+
+  let datePart;
+  switch (dateFormat) {
+    case "MM/DD/YYYY": datePart = `${mm}/${dd}/${yyyy}`; break;
+    case "YYYY-MM-DD": datePart = `${yyyy}-${mm}-${dd}`; break;
+    case "DD/MM/YYYY":
+    default:           datePart = `${dd}/${mm}/${yyyy}`; break;
+  }
+  return `${datePart} ${hh}:${min}`;
+}
+
 export default function History({ devices, latestByDevice, selectedDeviceId, setSelectedDeviceId }) {
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const { dateFormat } = useSettings();   // ← reads user's chosen format
+
+  const [from,    setFrom]    = useState("");
+  const [to,      setTo]      = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [info, setInfo] = useState("");
-  const [path, setPath] = useState([]);
+  const [error,   setError]   = useState("");
+  const [info,    setInfo]    = useState("");
+  const [path,    setPath]    = useState([]);
 
   const deviceIds = useMemo(() => (devices || []).map((d) => d.device_uid).sort(), [devices]);
 
@@ -31,13 +56,18 @@ export default function History({ devices, latestByDevice, selectedDeviceId, set
       const rows = await getHistory({
         device_id: selectedDeviceId,
         from: isoFromDatetimeLocal(from),
-        to: isoFromDatetimeLocal(to),
+        to:   isoFromDatetimeLocal(to),
         limit: 5000,
       });
       const list = Array.isArray(rows) ? rows.slice() : [];
       list.reverse();
       setPath(list);
-      setInfo(`Loaded ${list.length} points`);
+
+      // ── show formatted date range in the info message ──
+      const fromLabel = from ? formatDate(new Date(from).toISOString(), dateFormat) : "beginning";
+      const toLabel   = to   ? formatDate(new Date(to).toISOString(),   dateFormat) : "now";
+      setInfo(`Loaded ${list.length} points — ${fromLabel} to ${toLabel}`);
+
     } catch (err) {
       setError(err.response?.data?.error || err.message);
       setPath([]);
@@ -47,199 +77,131 @@ export default function History({ devices, latestByDevice, selectedDeviceId, set
   };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 20,
-        fontFamily: "var(--font-sans)",
-      }}
-    >
-      <div
-        style={{
-          borderRadius: 16,
-          background: "#ffffff",
-          boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            padding: 16,
-            borderBottom: "1px solid #e5e7eb",
-            background: "#f9fafb",
-            fontWeight: 700,
-            fontSize: 14,
-            color: "#020617",
-          }}
-        >
+    <div style={{ display: "flex", flexDirection: "column", gap: 20, fontFamily: "var(--font-sans)" }}>
+      <div style={{
+        borderRadius: 16, background: "#ffffff",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.15)", overflow: "hidden",
+      }}>
+        <div style={{
+          padding: 16, borderBottom: "1px solid #e5e7eb",
+          background: "#f9fafb", fontWeight: 700, fontSize: 14, color: "#020617",
+        }}>
           Filters & Controls
         </div>
-        <div
-          style={{
-            padding: 16,
-            display: "grid",
-            gridTemplateColumns: "1.2fr 1fr 1fr 120px 100px",
-            gap: 12,
-            alignItems: "end",
-          }}
-        >
+
+        <div style={{
+          padding: 16, display: "grid",
+          gridTemplateColumns: "1.2fr 1fr 1fr 120px 100px",
+          gap: 12, alignItems: "end",
+        }}>
+
+          {/* Device selector */}
           <div>
-            <label
-              style={{
-                display: "block",
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#374151",
-                marginBottom: 6,
-              }}
-            >
-              Device
-            </label>
+            <label style={lbl}>Device</label>
             <select
               value={selectedDeviceId}
               onChange={(e) => setSelectedDeviceId?.(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "8px 10px",
-                borderRadius: 8,
-                border: "1px solid #e5e7eb",
-                fontSize: 13,
-                height: 38,
-              }}
+              style={input}
             >
-              {deviceIds.length === 0 ? <option value="">No devices available</option> : null}
+              {deviceIds.length === 0
+                ? <option value="">No devices available</option>
+                : null}
               {deviceIds.map((id) => (
-                <option key={id} value={id}>
-                  {id}
-                </option>
+                <option key={id} value={id}>{id}</option>
               ))}
             </select>
           </div>
 
+          {/* From date */}
           <div>
-            <label
-              style={{
-                display: "block",
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#374151",
-                marginBottom: 6,
-              }}
-            >
+            <label style={lbl}>
               From Date
+              <span style={fmtBadge}>{dateFormat}</span>
             </label>
             <input
               type="datetime-local"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "8px 10px",
-                borderRadius: 8,
-                border: "1px solid #e5e7eb",
-                fontSize: 13,
-                height: 38,
-              }}
+              style={input}
             />
+            {/* show formatted preview below input */}
+            {from && (
+              <p style={preview}>
+                {formatDate(new Date(from).toISOString(), dateFormat)}
+              </p>
+            )}
           </div>
 
+          {/* To date */}
           <div>
-            <label
-              style={{
-                display: "block",
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#374151",
-                marginBottom: 6,
-              }}
-            >
+            <label style={lbl}>
               To Date
+              <span style={fmtBadge}>{dateFormat}</span>
             </label>
             <input
               type="datetime-local"
               value={to}
               onChange={(e) => setTo(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "8px 10px",
-                borderRadius: 8,
-                border: "1px solid #e5e7eb",
-                fontSize: 13,
-                height: 38,
-              }}
+              style={input}
             />
+            {/* show formatted preview below input */}
+            {to && (
+              <p style={preview}>
+                {formatDate(new Date(to).toISOString(), dateFormat)}
+              </p>
+            )}
           </div>
 
+          {/* Load button */}
           <button
             onClick={load}
             disabled={loading || !selectedDeviceId}
             style={{
-              padding: "8px 10px",
-              borderRadius: 8,
-              border: "none",
+              padding: "8px 10px", borderRadius: 8, border: "none",
               background: loading || !selectedDeviceId ? "#9ca3af" : "#2563eb",
               color: "#ffffff",
               cursor: loading || !selectedDeviceId ? "not-allowed" : "pointer",
-              fontWeight: 700,
-              fontSize: 12,
-              transition: "all 0.2s ease",
-              height: 38,
+              fontWeight: 700, fontSize: 12,
+              transition: "all 0.2s ease", height: 38,
             }}
           >
             {loading ? "Loading…" : "Load"}
           </button>
 
+          {/* Clear button */}
           <button
-            onClick={() => {
-              setPath([]);
-              setInfo("");
-              setError("");
-            }}
+            onClick={() => { setPath([]); setInfo(""); setError(""); }}
             style={{
-              padding: "8px 10px",
-              borderRadius: 8,
-              border: "1px solid #e5e7eb",
-              background: "#ffffff",
-              cursor: "pointer",
-              fontWeight: 700,
-              fontSize: 12,
-              transition: "all 0.2s ease",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              height: 38,
+              padding: "8px 10px", borderRadius: 8,
+              border: "1px solid #e5e7eb", background: "#ffffff",
+              cursor: "pointer", fontWeight: 700, fontSize: 12,
+              display: "flex", alignItems: "center",
+              justifyContent: "center", height: 38,
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "#f3f4f6";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "#ffffff";
-            }}
+            onMouseEnter={e => { e.currentTarget.style.background = "#f3f4f6"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "#ffffff"; }}
           >
             <FiTrash2 size={14} />
           </button>
         </div>
+
+        {/* Status messages */}
         {error ? (
           <div style={{ padding: "0 16px 16px", color: "#dc2626", fontWeight: 700, fontSize: 13 }}>
             ❌ {error}
           </div>
         ) : info ? (
           <div style={{ padding: "0 16px 16px", color: "#16a34a", fontWeight: 800, fontSize: 12 }}>
-            {info}
+            ✓ {info}
           </div>
         ) : null}
       </div>
 
-      <div
-        style={{
-          height: "72vh",
-          borderRadius: 16,
-          overflow: "hidden",
-          background: "#ffffff",
-          boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
-        }}
-      >
+      {/* Map */}
+      <div style={{
+        height: "72vh", borderRadius: 16, overflow: "hidden",
+        background: "#ffffff", boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
+      }}>
         <TrackerLeafletMap
           latestByDevice={latestByDevice || {}}
           selectedDeviceId={selectedDeviceId}
@@ -250,3 +212,26 @@ export default function History({ devices, latestByDevice, selectedDeviceId, set
     </div>
   );
 }
+
+// ── small style constants ────────────────────────────────────
+const lbl = {
+  display: "flex", alignItems: "center", gap: 6,
+  fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 6,
+};
+
+const input = {
+  width: "100%", padding: "8px 10px",
+  borderRadius: 8, border: "1px solid #e5e7eb",
+  fontSize: 13, height: 38, boxSizing: "border-box",
+};
+
+const fmtBadge = {
+  fontSize: 9, fontWeight: 700, padding: "1px 5px",
+  borderRadius: 4, background: "#eff6ff",
+  color: "#2563eb", letterSpacing: "0.04em",
+};
+
+const preview = {
+  margin: "3px 0 0", fontSize: 10,
+  color: "#2563eb", fontWeight: 500,
+};
