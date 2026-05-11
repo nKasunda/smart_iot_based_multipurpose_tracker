@@ -7,6 +7,7 @@ import {
   FiBell,
   FiActivity,
   FiClock,
+  FiSettings,
 } from "react-icons/fi";
 
 function SideMenu({ isOpen, toggle, activeItem, onSelect, stats }) {
@@ -18,6 +19,7 @@ function SideMenu({ isOpen, toggle, activeItem, onSelect, stats }) {
     { label: "Devices", icon: <FiList size={18} /> },
     { label: "Alerts", icon: <FiBell size={18} />, badge: warningCount > 0 ? warningCount : null },
     { label: "History", icon: <FiClock size={18} /> },
+    { label: "Settings", icon: <FiSettings size={18} /> },
   ];
   return (
     <aside
