@@ -898,6 +898,28 @@ select {
   border: none !important;
 }
 
+.tracker-map-fit-control {
+  margin-top: 12px;
+  margin-right: 12px;
+}
+
+.tracker-map-fit-control button {
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #0f172a;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 14px 32px rgba(2, 6, 23, 0.18);
+}
+
+.tracker-map-fit-control button:hover {
+  background: #f8fafc;
+}
+
 .leaflet-container:not(.leaflet-dragging):not(.leaflet-zoom-anim) .leaflet-marker-icon.device-marker-wrapper {
   transition: transform 650ms cubic-bezier(0.22, 1, 0.36, 1);
   will-change: transform;
@@ -958,6 +980,18 @@ select {
   animation-delay: 0.62s;
 }
 
+.device-marker-outer.is-beaming .device-marker-pulse {
+  border-width: 3px;
+  animation-duration: 0.9s;
+  filter:
+    drop-shadow(0 0 10px var(--marker-color, #ef4444))
+    drop-shadow(0 0 22px var(--marker-color, #ef4444));
+}
+
+.device-marker-outer.is-beaming .device-marker-pulse--two {
+  animation-delay: 0.32s;
+}
+
 .device-marker-ring {
   inset: 3px;
   border: 2px solid rgba(255, 255, 255, 0.9);
@@ -997,7 +1031,7 @@ select {
   width: 18px;
   height: 18px;
   border-width: 3px;
-  animation: deviceMarkerBob 1.15s ease-in-out infinite;
+  animation: deviceMarkerBeacon 0.95s ease-in-out infinite;
 }
 
 @keyframes deviceMarkerPulse {
@@ -1024,6 +1058,18 @@ select {
   }
   100% {
     transform: translateY(0);
+  }
+}
+
+@keyframes deviceMarkerBeacon {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  45% {
+    transform: translateY(-3px) scale(1.18);
+  }
+  100% {
+    transform: translateY(0) scale(1);
   }
 }
 

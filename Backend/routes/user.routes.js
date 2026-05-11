@@ -8,6 +8,10 @@ const { authenticate } = require("../middleware/auth");
 // All user routes require authentication
 router.use(authenticate);
 
+router.patch("/profile", userController.updateProfile);
+router.patch("/password", userController.updatePassword);
+router.patch("/settings", userController.updateSettings);
+
 // Claim a device
 router.post("/devices/claim", userController.claimDevice);
 

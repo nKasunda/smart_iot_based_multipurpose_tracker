@@ -1,8 +1,10 @@
 import React, { useState } from "react";
-import { FaEnvelope, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
+import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaGoogle } from "react-icons/fa";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useAuth } from "../context/AuthContext";
+import { auth as firebaseAuth } from "../Firebase";
 
 function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -10,7 +12,7 @@ function SignInForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
-  const auth = useAuth();
+  const appAuth = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -20,13 +22,31 @@ function SignInForm() {
     const password = e.target.password.value;
 
     try {
-      const loginData = await auth.login(email, password);
+      await appAuth.login(email, password);
       // Role is now determined by backend - user's email determines if admin or client
       // Both roles go to the same dashboard
       router.push("/dashboard");
     } catch (error) {
       console.error("Sign in error:", error.message);
       setError(error.response?.data?.error || error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: "select_account" });
+      const credential = await signInWithPopup(firebaseAuth, provider);
+      const idToken = await credential.user.getIdToken();
+      await appAuth.googleLogin(idToken);
+      router.push("/dashboard");
+    } catch (error) {
+      console.error("Google sign in error:", error);
+      setError(error.response?.data?.error || error.message || "Google sign-in failed");
     } finally {
       setLoading(false);
     }
@@ -195,7 +215,7 @@ function SignInForm() {
       {/* Forgot Password Link */}
       <div style={{ textAlign: "right", marginBottom: "30px" }}>
         <Link
-          href="/ForgotPassword"
+          href="/forgot-password"
           style={{
             color: "#000080",
             textDecoration: "none",
@@ -214,6 +234,20 @@ function SignInForm() {
         disabled={loading}
       >
         {loading ? <div className="spinner"></div> : "Sign In"}
+      </button>
+
+      <div className="divider">
+        <span>or</span>
+      </div>
+
+      <button
+        type="button"
+        className="google-button"
+        onClick={handleGoogleSignIn}
+        disabled={loading}
+      >
+        <FaGoogle />
+        Sign in with Google
       </button>
 
       {/* Register Link */}
@@ -280,6 +314,53 @@ function SignInForm() {
           height: 18px;
           margin: 0 auto;
           animation: spin 0.8s linear infinite;
+        }
+
+        .divider {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin: 18px 0;
+          color: #6b7280;
+          font-size: 12px;
+          font-weight: 700;
+        }
+
+        .divider::before,
+        .divider::after {
+          content: "";
+          flex: 1;
+          height: 1px;
+          background: #e5e7eb;
+        }
+
+        .google-button {
+          width: 100%;
+          height: 45px;
+          border-radius: 8px;
+          border: 2px solid #e5e7eb;
+          background: #ffffff;
+          color: #111827;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          font-size: 14px;
+          font-weight: 700;
+          transition: all 0.2s ease;
+        }
+
+        .google-button:hover {
+          border-color: #000080;
+          transform: translateY(-1px);
+          box-shadow: 0 6px 14px rgba(0, 0, 128, 0.14);
+        }
+
+        .google-button:disabled {
+          opacity: 0.72;
+          cursor: not-allowed;
+          transform: none;
         }
 
         @keyframes spin {

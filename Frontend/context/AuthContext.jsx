@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { login as apiLogin, me as apiMe, register as apiRegister } from "../lib/api";
+import { googleLogin as apiGoogleLogin, login as apiLogin, me as apiMe, register as apiRegister } from "../lib/api";
 import { getToken, setToken } from "../lib/tokenStorage";
 
 const AuthContext = createContext(null);
@@ -40,11 +40,20 @@ export function AuthProvider({ children }) {
         setUser(data.user);
         return data;
       },
-      async register(name, email, password) {
-        const data = await apiRegister(name, email, password);
+      async googleLogin(idToken) {
+        const data = await apiGoogleLogin(idToken);
         setToken(data.token);
         setTokenState(data.token);
         setUser(data.user);
+        return data;
+      },
+      async register(name, email, password) {
+        const data = await apiRegister(name, email, password);
+        if (data.token) {
+          setToken(data.token);
+          setTokenState(data.token);
+          setUser(data.user);
+        }
         return data;
       },
       async refresh() {
@@ -68,4 +77,3 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }
-

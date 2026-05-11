@@ -1,9 +1,12 @@
 import React from "react";
 import { FiRefreshCcw } from "react-icons/fi";
+import { formatDateTime, useSettings } from "../../context/SettingsContext";
 
 export default function Alerts({ alerts, onRefresh }) {
+  const { dateFormat, clockFormat } = useSettings();
   const low = alerts?.lowBatteryDevices || [];
   const inactive = alerts?.inactiveDevices || [];
+  const poorSignal = alerts?.poorSignalDevices || [];
   const items = Array.isArray(alerts?.items)
     ? alerts.items
     : [
@@ -21,17 +24,27 @@ export default function Alerts({ alerts, onRefresh }) {
           battery: d.battery,
           lastSeen: d.lastSeen,
         })),
+        ...(poorSignal || []).map((d) => ({
+          type: "poor_signal",
+          device_uid: d.device_uid,
+          imei: d.imei,
+          battery: d.battery,
+          signalStrength: d.signalStrength,
+          lastSeen: d.lastSeen,
+        })),
       ];
 
   const typeLabel = (t) => {
     if (t === "low_battery") return "Low battery";
     if (t === "inactive") return "Inactive";
+    if (t === "poor_signal") return "Poor signal";
     return String(t || "Unknown");
   };
 
   const typeColor = (t) => {
     if (t === "low_battery") return { fg: "#dc2626", bg: "#fee2e2", border: "#fecaca" };
     if (t === "inactive") return { fg: "#ea580c", bg: "#ffedd5", border: "#fed7aa" };
+    if (t === "poor_signal") return { fg: "#7c3aed", bg: "#ede9fe", border: "#ddd6fe" };
     return { fg: "#334155", bg: "#f1f5f9", border: "#e2e8f0" };
   };
 
@@ -104,7 +117,7 @@ export default function Alerts({ alerts, onRefresh }) {
           <span>Device ID</span>
           <span>IMEI</span>
           <span style={{ justifySelf: "center" }}>Type</span>
-          <span>Battery</span>
+          <span>Value</span>
           <span>Last Seen</span>
         </div>
 
@@ -159,9 +172,11 @@ export default function Alerts({ alerts, onRefresh }) {
                 >
                   {typeLabel(a.type)}
                 </span>
-                <span style={{ fontWeight: 800 }}>{a.battery ?? "—"}%</span>
+                <span style={{ fontWeight: 800 }}>
+                  {a.type === "poor_signal" ? a.signalStrength ?? "—" : `${a.battery ?? "—"}%`}
+                </span>
                 <span style={{ color: "#64748b", fontSize: 11 }}>
-                  {a.lastSeen ? new Date(a.lastSeen).toLocaleString() : "—"}
+                  {a.lastSeen ? formatDateTime(a.lastSeen, dateFormat, clockFormat) : "—"}
                 </span>
               </div>
             );

@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip, useMap, useMapEvents } from "react-leaflet";
+import { FiMaximize2 } from "react-icons/fi";
 import L from "leaflet";
+import { formatDateTime, useSettings } from "../context/SettingsContext";
 
 function FlyTo({ center }) {
   const map = useMap();
@@ -23,6 +25,44 @@ function PopupStateSync({ onPopupDeviceChange }) {
     },
   });
   return null;
+}
+
+function FitAllControl({ entries }) {
+  const map = useMap();
+
+  const fitAll = () => {
+    map.invalidateSize();
+
+    const points = (entries || []).map(([, loc]) => [loc.lat, loc.lng]);
+    if (points.length >= 2) {
+      map.fitBounds(L.latLngBounds(points), {
+        padding: [42, 42],
+        maxZoom: 16,
+        animate: true,
+      });
+      return;
+    }
+
+    if (points.length === 1) {
+      map.setView(points[0], 15, { animate: true });
+      return;
+    }
+
+    map.setView([-13.9626, 33.7741], 6, { animate: true });
+  };
+
+  useEffect(() => {
+    const id = window.setTimeout(() => map.invalidateSize(), 120);
+    return () => window.clearTimeout(id);
+  }, [map, entries.length]);
+
+  return (
+    <div className="leaflet-top leaflet-right tracker-map-fit-control">
+      <button type="button" onClick={fitAll} title="Show all markers" aria-label="Show all markers">
+        <FiMaximize2 size={16} />
+      </button>
+    </div>
+  );
 }
 
 function isOnlineFromTimestamp(ts) {
@@ -54,6 +94,7 @@ function makeDeviceMarkerIcon({ color, online, selected }) {
     "device-marker-outer",
     online ? "is-online" : "is-offline",
     selected ? "is-selected" : "",
+    selected && online ? "is-beaming" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -73,6 +114,7 @@ export default function TrackerLeafletMap({
   onSelectDeviceId,
   selectedPath,
 }) {
+  const { dateFormat, clockFormat } = useSettings();
   const allEntries = useMemo(() => Object.entries(latestByDevice || {}), [latestByDevice]);
   const entries = useMemo(
     () => allEntries.filter(([, loc]) => Number.isFinite(loc?.lat) && Number.isFinite(loc?.lng)),
@@ -112,6 +154,7 @@ export default function TrackerLeafletMap({
 
       <FlyTo center={validCenter} />
       <PopupStateSync onPopupDeviceChange={setOpenPopupDeviceId} />
+      <FitAllControl entries={entries} />
 
       {Array.isArray(selectedPath) && selectedPath.length >= 2 ? (
         <Polyline
@@ -212,7 +255,7 @@ export default function TrackerLeafletMap({
                       borderBottom: "1px solid #e5e7eb",
                     }}
                   >
-                    Last update: {new Date(loc.timestamp).toLocaleString()}
+                    Last update: {formatDateTime(loc.timestamp, dateFormat, clockFormat)}
                   </div>
                 ) : null}
 

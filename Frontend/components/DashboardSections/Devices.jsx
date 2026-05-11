@@ -3,6 +3,7 @@ import axios from "axios";
 import { FiTrash2, FiEdit2 } from "react-icons/fi";
 import { API_BASE } from "../../lib/config";
 import { getToken } from "../../lib/tokenStorage";
+import { formatDateTime, useSettings } from "../../context/SettingsContext";
 
 function isOnline(lastSeen) {
   if (!lastSeen) return false;
@@ -12,6 +13,7 @@ function isOnline(lastSeen) {
 }
 
 export default function Devices({ user, devices, selectedDeviceId, setSelectedDeviceId, onRefresh, token }) {
+  const { dateFormat, clockFormat } = useSettings();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -631,7 +633,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
                   title={online ? "Online" : "Offline"}
                 />
                 <span style={{ color: "#64748b", fontSize: 10 }}>
-                  {d.lastSeen ? new Date(d.lastSeen).toLocaleString() : "null"}
+                  {d.lastSeen ? formatDateTime(d.lastSeen, dateFormat, clockFormat) : "null"}
                 </span>
                 <div
                   style={{

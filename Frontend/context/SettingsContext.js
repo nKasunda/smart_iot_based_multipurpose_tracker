@@ -1,18 +1,70 @@
 /// context/SettingsContext.js
 import { createContext, useContext, useState, useEffect } from "react";
+import { updateSettings } from "../lib/api";
+import { useAuth } from "./AuthContext";
 
 const SettingsContext = createContext();
 
+const DEFAULT_SETTINGS = {
+  clockFormat: "12h",
+  alertEmail: true,
+  alertPush: false,
+  dateFormat: "DD/MM/YYYY",
+  distanceUnit: "km",
+  timezone: "Africa/Lilongwe",
+  alertCritical: true,
+  alertWarning: true,
+  alertInfo: false,
+};
+
+export function formatDateTime(value, dateFormat = "DD/MM/YYYY", clockFormat = "12h") {
+  if (!value) return "—";
+  const date = value instanceof Date ? value : new Date(value);
+  if (!Number.isFinite(date.getTime())) return "—";
+
+  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const yyyy = date.getFullYear();
+  const h = date.getHours();
+  const min = String(date.getMinutes()).padStart(2, "0");
+
+  const datePart =
+    dateFormat === "MM/DD/YYYY"
+      ? `${mm}/${dd}/${yyyy}`
+      : dateFormat === "YYYY-MM-DD"
+        ? `${yyyy}-${mm}-${dd}`
+        : `${dd}/${mm}/${yyyy}`;
+  const timePart =
+    clockFormat === "24h"
+      ? `${String(h).padStart(2, "0")}:${min}`
+      : `${h % 12 || 12}:${min} ${h >= 12 ? "pm" : "am"}`;
+
+  return `${datePart} ${timePart}`;
+}
+
 export function SettingsProvider({ children }) {
-  const [clockFormat,   setClockFormat]   = useState("12h");
-  const [alertEmail,    setAlertEmail]    = useState(true);
-  const [alertPush,     setAlertPush]     = useState(false);
-  const [dateFormat,    setDateFormat]    = useState("DD/MM/YYYY");
-  const [distanceUnit,  setDistanceUnit]  = useState("km");
-  const [timezone,      setTimezone]      = useState("Africa/Lilongwe");
-  const [alertCritical,  setAlertCritical]  = useState(false);  // ← default OFF
-  const [alertWarning,   setAlertWarning]   = useState(false);  // ← default OFF
-  const [alertInfo,      setAlertInfo]      = useState(true);   // ← default ON
+  const auth = useAuth();
+  const [clockFormat,   setClockFormat]   = useState(DEFAULT_SETTINGS.clockFormat);
+  const [alertEmail,    setAlertEmail]    = useState(DEFAULT_SETTINGS.alertEmail);
+  const [alertPush,     setAlertPush]     = useState(DEFAULT_SETTINGS.alertPush);
+  const [dateFormat,    setDateFormat]    = useState(DEFAULT_SETTINGS.dateFormat);
+  const [distanceUnit,  setDistanceUnit]  = useState(DEFAULT_SETTINGS.distanceUnit);
+  const [timezone,      setTimezone]      = useState(DEFAULT_SETTINGS.timezone);
+  const [alertCritical, setAlertCritical] = useState(DEFAULT_SETTINGS.alertCritical);
+  const [alertWarning,  setAlertWarning]  = useState(DEFAULT_SETTINGS.alertWarning);
+  const [alertInfo,     setAlertInfo]     = useState(DEFAULT_SETTINGS.alertInfo);
+
+  const applySettings = (s = {}) => {
+    if (s.clockFormat  !== undefined) setClockFormat(s.clockFormat);
+    if (s.alertEmail   !== undefined) setAlertEmail(s.alertEmail);
+    if (s.alertPush    !== undefined) setAlertPush(s.alertPush);
+    if (s.dateFormat   !== undefined) setDateFormat(s.dateFormat);
+    if (s.distanceUnit !== undefined) setDistanceUnit(s.distanceUnit);
+    if (s.timezone     !== undefined) setTimezone(s.timezone);
+    if (s.alertCritical !== undefined) setAlertCritical(s.alertCritical);
+    if (s.alertWarning  !== undefined) setAlertWarning(s.alertWarning);
+    if (s.alertInfo     !== undefined) setAlertInfo(s.alertInfo);
+  };
 
   // Load saved settings from localStorage on first render
   useEffect(() => {
@@ -20,22 +72,25 @@ export function SettingsProvider({ children }) {
       const saved = localStorage.getItem("tracka_settings");
       if (saved) {
         const s = JSON.parse(saved);
-        if (s.clockFormat  !== undefined) setClockFormat(s.clockFormat);
-        if (s.alertEmail   !== undefined) setAlertEmail(s.alertEmail);
-        if (s.alertPush    !== undefined) setAlertPush(s.alertPush);
-        if (s.dateFormat   !== undefined) setDateFormat(s.dateFormat);
-        if (s.distanceUnit !== undefined) setDistanceUnit(s.distanceUnit);
-        if (s.timezone     !== undefined) setTimezone(s.timezone);
-        if (s.alertCritical !== undefined) setAlertCritical(s.alertCritical);
-        if (s.alertWarning   !== undefined) setAlertWarning(s.alertWarning);
-        if (s.alertInfo      !== undefined) setAlertInfo(s.alertInfo);
+        applySettings(s);
       }
     } catch {
       // ignore
     }
   }, []);
 
-  const save = (patch) => {
+  useEffect(() => {
+    if (!auth.user?.settings) return;
+    const next = { ...DEFAULT_SETTINGS, ...auth.user.settings };
+    try {
+      localStorage.setItem("tracka_settings", JSON.stringify(next));
+    } catch {
+      // ignore
+    }
+    applySettings(next);
+  }, [auth.user?.settings]);
+
+  const save = async (patch) => {
     try {
       const current = JSON.parse(localStorage.getItem("tracka_settings") || "{}");
       const next = { ...current, ...patch };
@@ -43,15 +98,17 @@ export function SettingsProvider({ children }) {
     } catch {
       // ignore
     }
-    if (patch.clockFormat  !== undefined) setClockFormat(patch.clockFormat);
-    if (patch.alertEmail   !== undefined) setAlertEmail(patch.alertEmail);
-    if (patch.alertPush    !== undefined) setAlertPush(patch.alertPush);
-    if (patch.dateFormat   !== undefined) setDateFormat(patch.dateFormat);
-    if (patch.distanceUnit !== undefined) setDistanceUnit(patch.distanceUnit);
-    if (patch.timezone     !== undefined) setTimezone(patch.timezone);
-    if (patch.alertCritical !== undefined) setAlertCritical(patch.alertCritical);
-    if (patch.alertWarning  !== undefined) setAlertWarning(patch.alertWarning);
-    if (patch.alertInfo     !== undefined) setAlertInfo(patch.alertInfo);
+    applySettings(patch);
+
+    if (auth.isAuthed) {
+      try {
+        const res = await updateSettings(patch);
+        if (res?.settings) applySettings(res.settings);
+        if (typeof auth.refresh === "function") auth.refresh().catch(() => {});
+      } catch {
+        // Local settings still apply when offline.
+      }
+    }
   };
 
   return (
@@ -66,8 +123,8 @@ export function SettingsProvider({ children }) {
       alertWarning,
       alertInfo,
       save,
-    }}
->      {children}
+    }}>
+      {children}
     </SettingsContext.Provider>
   );
 }

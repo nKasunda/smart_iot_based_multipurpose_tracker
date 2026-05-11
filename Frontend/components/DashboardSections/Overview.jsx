@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import dynamic from "next/dynamic";
-import { FiBox, FiCheckCircle, FiAlertTriangle, FiTrendingUp, FiBell, FiRefreshCcw } from "react-icons/fi";
+import { FiBox, FiCheckCircle, FiAlertTriangle, FiTrendingUp, FiBell } from "react-icons/fi";
+import { formatDateTime, useSettings } from "../../context/SettingsContext";
 
 const TrackerLeafletMap = dynamic(() => import("../TrackerLeafletMap"), { ssr: false });
 
@@ -11,8 +12,8 @@ export default function Overview({
   alerts,
   selectedDeviceId,
   setSelectedDeviceId,
-  onRefresh,
 }) {
+  const { dateFormat, clockFormat } = useSettings();
   const activeNow = useMemo(() => {
     const now = Date.now();
     return (devices || []).filter((d) => {
@@ -49,12 +50,14 @@ export default function Overview({
   const typeLabel = (t) => {
     if (t === "low_battery") return "Low battery";
     if (t === "inactive") return "Inactive";
+    if (t === "poor_signal") return "Poor signal";
     return String(t || "Unknown");
   };
 
   const typeColor = (t) => {
     if (t === "low_battery") return { fg: "#dc2626", bg: "#fee2e2", border: "#fecaca" };
     if (t === "inactive") return { fg: "#ea580c", bg: "#ffedd5", border: "#fed7aa" };
+    if (t === "poor_signal") return { fg: "#7c3aed", bg: "#ede9fe", border: "#ddd6fe" };
     return { fg: "#334155", bg: "#f1f5f9", border: "#e2e8f0" };
   };
 
@@ -161,35 +164,6 @@ export default function Overview({
           flexDirection: "column",
         }}
       >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          gap: "8px",
-          padding: "10px 20px",
-          borderBottom: "1px solid #e5e7eb",
-          background: "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)",
-        }}
-      >
-        <button
-          onClick={() => onRefresh?.()}
-          aria-label="Refresh overview map"
-          style={{
-            width: "42px",
-            height: "42px",
-            borderRadius: "12px",
-            border: "1px solid #e5e7eb",
-            background: "#ffffff",
-            cursor: "pointer",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#0f172a",
-          }}
-        >
-          <FiRefreshCcw size={18} />
-        </button>
-      </div>
         <div style={{ flex: 1, minHeight: 0 }}>
           <TrackerLeafletMap
             latestByDevice={latestByDevice || {}}
@@ -282,8 +256,10 @@ export default function Overview({
                     <span style={{ color: "#64748b", fontSize: 12 }}>
                       {a.type === "low_battery"
                         ? `Battery: ${a.battery ?? "—"}%`
+                        : a.type === "poor_signal"
+                          ? `Signal: ${a.signalStrength ?? "—"}`
                         : a.lastSeen
-                          ? new Date(a.lastSeen).toLocaleString()
+                          ? formatDateTime(a.lastSeen, dateFormat, clockFormat)
                           : "—"}
                     </span>
                   </div>

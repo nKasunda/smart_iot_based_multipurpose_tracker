@@ -26,6 +26,34 @@ module.exports = (sequelize, DataTypes) => {
     role: {
       type: DataTypes.STRING,
       defaultValue: 'user'
+    },
+    emailVerified: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false
+    },
+    verificationToken: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    verificationExpiresAt: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    authProvider: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'password'
+    },
+    googleSub: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      unique: true
+    },
+    settings: {
+      type: DataTypes.JSONB,
+      allowNull: true,
+      defaultValue: {}
     }
   }, {
     sequelize,

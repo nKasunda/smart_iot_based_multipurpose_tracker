@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { FiClock, FiLogOut, FiEye, FiEyeOff, FiX } from "react-icons/fi";
 import { useSettings } from "../context/SettingsContext";
 import { useAuth } from "../context/AuthContext";
+import { updatePassword, updateProfile } from "../lib/api";
 
 function getInitials(user) {
   const name = (user?.name || "").trim();
@@ -28,16 +29,6 @@ function formatTime(date, fmt) {
   return `${h % 12 || 12}:${m}:${s} ${ampm}`;
 }
 
-// ── read saved profile name/email from localStorage ──────────
-function getSavedProfile() {
-  try {
-    const s = JSON.parse(localStorage.getItem("tracka_settings") || "{}");
-    return { name: s.profileName || "", email: s.profileEmail || "" };
-  } catch {
-    return { name: "", email: "" };
-  }
-}
-
 // ── Alerts Tab ───────────────────────────────────────────────
 function AlertsTab({ alertEmail, alertPush, save, togglePush }) {
   const { alertCritical, alertWarning, alertInfo } = useSettings();
@@ -60,7 +51,7 @@ function AlertsTab({ alertEmail, alertPush, save, togglePush }) {
     {
       key:     "info",
       label:   "Informational",
-      sub:     "General updates, no action needed",
+      sub:     "Routine status changes",
       dot:     "#2563eb",
       checked: alertInfo,
     },
@@ -115,12 +106,12 @@ function ProfileDropdown({ user, onClose, isAdmin, anchorRef }) {
   const { clockFormat, alertEmail, alertPush, dateFormat, save } = useSettings();
   const { refresh } = useAuth();
 
-  const saved = getSavedProfile();
-  const [name,         setName]         = useState(saved.name  || user?.name  || "");
-  const [email,        setEmail]        = useState(saved.email || user?.email || "");
+  const [name,         setName]         = useState(user?.name  || "");
+  const [email,        setEmail]        = useState(user?.email || "");
   const [profileSaved, setProfileSaved] = useState(false);
-  const [displayName,  setDisplayName]  = useState(saved.name  || user?.name  || user?.email || "User");
-  const [displayEmail, setDisplayEmail] = useState(saved.email || user?.email || "");
+  const [profileError, setProfileError] = useState("");
+  const [displayName,  setDisplayName]  = useState(user?.name  || user?.email || "User");
+  const [displayEmail, setDisplayEmail] = useState(user?.email || "");
 
   const [current,     setCurrent]     = useState("");
   const [nextPw,      setNextPw]      = useState("");
@@ -132,6 +123,13 @@ function ProfileDropdown({ user, onClose, isAdmin, anchorRef }) {
   const [showConfirm, setShowConfirm] = useState(false);
 
   const [tab, setTab] = useState("profile");
+
+  useEffect(() => {
+    setName(user?.name || "");
+    setEmail(user?.email || "");
+    setDisplayName(user?.name || user?.email || "User");
+    setDisplayEmail(user?.email || "");
+  }, [user?.name, user?.email]);
 
   const [pos, setPos] = useState({ top: 70, right: 24 });
   useEffect(() => {
@@ -145,23 +143,17 @@ function ProfileDropdown({ user, onClose, isAdmin, anchorRef }) {
   }, [anchorRef]);
 
   const saveProfile = async () => {
+    setProfileError("");
     try {
-      const cur = JSON.parse(localStorage.getItem("tracka_settings") || "{}");
-      const next = { ...cur, profileName: name, profileEmail: email };
-      localStorage.setItem("tracka_settings", JSON.stringify(next));
-      setDisplayName(name || user?.email || "User");
-      setDisplayEmail(email);
-    } catch { /* ignore */ }
-    try {
-      await fetch("/api/user/profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email }),
-      });
+      const updated = await updateProfile({ name, email });
+      setDisplayName(updated?.name || updated?.email || "User");
+      setDisplayEmail(updated?.email || "");
       if (typeof refresh === "function") await refresh();
-    } catch { /* backend not ready yet */ }
-    setProfileSaved(true);
-    setTimeout(() => setProfileSaved(false), 2500);
+      setProfileSaved(true);
+      setTimeout(() => setProfileSaved(false), 2500);
+    } catch (err) {
+      setProfileError(err?.response?.data?.error || "Could not save profile.");
+    }
   };
 
   const savePassword = async () => {
@@ -169,25 +161,21 @@ function ProfileDropdown({ user, onClose, isAdmin, anchorRef }) {
     if (nextPw !== confirm) { setPwError("Passwords do not match.");         return; }
     if (nextPw.length < 8)  { setPwError("Minimum 8 characters required."); return; }
     try {
-      const res = await fetch("/api/user/password", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ current, next: nextPw }),
-      });
-      if (res.ok) {
-        setPwSaved(true);
-        setCurrent(""); setNextPw(""); setConfirm("");
-        setTimeout(() => setPwSaved(false), 2500);
-      } else {
-        setPwError("Current password is incorrect.");
-      }
-    } catch {
-      setPwError("Something went wrong. Please try again.");
+      await updatePassword({ current, next: nextPw });
+      setPwSaved(true);
+      setCurrent(""); setNextPw(""); setConfirm("");
+      setTimeout(() => setPwSaved(false), 2500);
+    } catch (err) {
+      setPwError(err?.response?.data?.error || "Something went wrong. Please try again.");
     }
   };
 
   const togglePush = async (checked) => {
     if (checked) {
+      if (typeof Notification === "undefined") {
+        alert("This browser does not support notifications.");
+        return;
+      }
       const perm = await Notification.requestPermission();
       if (perm !== "granted") {
         alert("Permission denied. Enable notifications in browser settings.");
@@ -263,6 +251,7 @@ function ProfileDropdown({ user, onClose, isAdmin, anchorRef }) {
                 <button style={d.saveBtn} onClick={saveProfile}>Save changes</button>
                 {profileSaved && <span style={d.savedMsg}>✓ Saved</span>}
               </div>
+              {profileError && <p style={d.error}>{profileError}</p>}
 
               <div style={d.divider} />
               <p style={d.sectionLabel}>Change password</p>
@@ -377,14 +366,14 @@ function ProfileDropdown({ user, onClose, isAdmin, anchorRef }) {
           {tab === "admin" && isAdmin && (
             <div>
               <p style={d.sectionLabel}>Admin controls</p>
-              <DRow label="Allow self-registration" sub="Users can sign up without invite">
-                <DSwitch defaultChecked={false} onChange={v => save({ selfRegister: v })} />
+              <DRow label="Strict IMEI ingest" sub="Unknown IMEIs are rejected before storing locations">
+                <DSwitch checked={true} onChange={() => {}} />
               </DRow>
-              <DRow label="Force 2FA for all users" sub="Require two-factor on every account">
-                <DSwitch defaultChecked={false} onChange={v => save({ force2FA: v })} />
+              <DRow label="Owner-scoped realtime" sub="Users receive socket updates only for their assigned devices">
+                <DSwitch checked={true} onChange={() => {}} />
               </DRow>
-              <DRow label="Global alert email override" sub="All alerts also go to shared inbox">
-                <DSwitch defaultChecked={true} onChange={v => save({ globalAlertEmail: v })} />
+              <DRow label="Admin sees all devices" sub="Admin dashboard keeps system-wide visibility">
+                <DSwitch checked={true} onChange={() => {}} />
               </DRow>
             </div>
           )}
@@ -441,9 +430,7 @@ function DashboardHeader({ user, onLogout, socketConnected, profileOpen, onToggl
   const avatarRef = useRef(null);
 
   const isAdmin = user?.role === "admin";
-
-  const savedProfile = getSavedProfile();
-  const displayName  = savedProfile.name || user?.name || user?.email || "User";
+  const displayName  = user?.name || user?.email || "User";
 
   useEffect(() => {
     setMounted(true);

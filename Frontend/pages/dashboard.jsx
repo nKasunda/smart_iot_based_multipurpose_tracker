@@ -14,6 +14,7 @@ import Alerts from "../components/DashboardSections/Alerts";
 import History from "../components/DashboardSections/History";
 
 import { useAuth } from "../context/AuthContext";
+import { useSettings } from "../context/SettingsContext";
 import { SOCKET_URL } from "../lib/config";
 import { getAlerts, getDevices, getLatest, getStats } from "../lib/api";
 import { getToken } from "../lib/tokenStorage";
@@ -32,6 +33,7 @@ const DASHBOARD_SECTION_KEY = "dashboard.activeSection";
 export default function DashboardPage() {
   const router = useRouter();
   const auth   = useAuth();
+  const settings = useSettings();
 
   const [menuOpen,         setMenuOpen]         = useState(true);
   const [profileOpen,      setProfileOpen]      = useState(false);
@@ -52,17 +54,13 @@ export default function DashboardPage() {
   const [selectedDeviceId, setSelectedDeviceId] = useState("");
 
   const socketRef = useRef(null);
+  const visibleDeviceIdsRef = useRef(new Set());
+  const notifiedAlertsRef = useRef(new Set());
 
   useEffect(() => {
     if (auth.booting) return;
     if (!auth.isAuthed) router.replace("/");
   }, [auth.booting, auth.isAuthed, router]);
-
-  const latestByDevice = useMemo(() => {
-    const map = {};
-    (latest || []).forEach((row) => { map[row.device_id] = row; });
-    return map;
-  }, [latest]);
 
   const filteredDevices = useMemo(() => {
     if (!auth.user) return devices;
@@ -76,6 +74,16 @@ export default function DashboardPage() {
     const deviceIds = new Set(filteredDevices.map((d) => d.device_uid));
     return (latest || []).filter((l) => deviceIds.has(l.device_id));
   }, [latest, filteredDevices, auth.user]);
+
+  const latestByDevice = useMemo(() => {
+    const map = {};
+    (filteredLatest || []).forEach((row) => { map[row.device_id] = row; });
+    return map;
+  }, [filteredLatest]);
+
+  useEffect(() => {
+    visibleDeviceIdsRef.current = new Set((filteredDevices || []).map((d) => d.device_uid));
+  }, [filteredDevices]);
 
   const activeNow = useMemo(() => {
     const now = Date.now();
@@ -126,7 +134,7 @@ export default function DashboardPage() {
     const interval = setInterval(() => refreshAll().catch(() => {}), 10000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth.isAuthed]);
+  }, [auth.isAuthed, auth.user?.role]);
 
   useEffect(() => {
     if (!auth.isAuthed) return;
@@ -145,6 +153,7 @@ export default function DashboardPage() {
 
     socket.on("location:update", ({ location }) => {
       if (!location?.device_id) return;
+      if (auth.user?.role !== "admin" && !visibleDeviceIdsRef.current.has(location.device_id)) return;
       setLatest((prev) => {
         const list = Array.isArray(prev) ? [...prev] : [];
         const idx  = list.findIndex((x) => x.device_id === location.device_id);
@@ -158,7 +167,37 @@ export default function DashboardPage() {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [auth.isAuthed]);
+  }, [auth.isAuthed, auth.user?.role]);
+
+  useEffect(() => {
+    const items = Array.isArray(alerts?.items) ? alerts.items : [];
+    if (!items.length || !settings.alertPush) return;
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+
+    const typeEnabled = (item) => {
+      const severity = item.severity || (item.type === "inactive" ? "critical" : "warning");
+      if (severity === "critical") return settings.alertCritical;
+      if (severity === "warning") return settings.alertWarning;
+      return settings.alertInfo;
+    };
+
+    items.forEach((item) => {
+      if (!typeEnabled(item)) return;
+      const key = `${item.type}:${item.device_uid}:${item.lastSeen || item.battery || item.signalStrength || ""}`;
+      if (notifiedAlertsRef.current.has(key)) return;
+      notifiedAlertsRef.current.add(key);
+      new Notification(`TrackA ${item.type?.replace(/_/g, " ") || "alert"}`, {
+        body: item.message || `${item.device_uid || "Device"} needs attention`,
+        tag: key,
+      });
+    });
+  }, [
+    alerts,
+    settings.alertPush,
+    settings.alertCritical,
+    settings.alertWarning,
+    settings.alertInfo,
+  ]);
 
   const ActiveComponent = sectionComponents[activeSection] || Overview;
 

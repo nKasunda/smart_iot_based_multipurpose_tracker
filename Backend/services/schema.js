@@ -12,6 +12,29 @@ async function ensureSchema(sequelize) {
     `
     DO $$
     BEGIN
+      IF to_regclass('public."Users"') IS NOT NULL THEN
+        ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "settings" JSONB DEFAULT '{}'::jsonb;
+        ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "emailVerified" BOOLEAN DEFAULT false;
+        ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "verificationToken" VARCHAR;
+        ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "verificationExpiresAt" TIMESTAMPTZ;
+        ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "authProvider" VARCHAR DEFAULT 'password';
+        ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "googleSub" VARCHAR;
+
+        -- Existing accounts predate email verification and should remain able to sign in.
+        UPDATE "Users"
+        SET "emailVerified" = true
+        WHERE "verificationToken" IS NULL
+          AND ("authProvider" IS NULL OR "authProvider" IN ('password', 'password_google'));
+
+        CREATE UNIQUE INDEX IF NOT EXISTS "Users_googleSub_unique_idx"
+        ON "Users" ("googleSub")
+        WHERE "googleSub" IS NOT NULL;
+      END IF;
+    END $$;
+    `,
+    `
+    DO $$
+    BEGIN
       IF to_regclass('public."Trackers"') IS NOT NULL THEN
         -- Legacy renames: trackerId/device_id -> device_uid (only if device_uid missing)
         IF NOT EXISTS (

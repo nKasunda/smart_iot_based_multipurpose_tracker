@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { FaUser, FaEnvelope, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
 import Link from "next/link";
-import { useRouter } from "next/router";
 import { useAuth } from "../context/AuthContext";
 
 function RegisterForm() {
@@ -10,13 +9,16 @@ function RegisterForm() {
   const [focusedInput, setFocusedInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const router = useRouter();
+  const [success, setSuccess] = useState("");
+  const [verificationUrl, setVerificationUrl] = useState("");
   const auth = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setSuccess("");
+    setVerificationUrl("");
     
     const name = e.target.name.value;
     const email = e.target.email.value;
@@ -43,9 +45,9 @@ function RegisterForm() {
     }
 
     try {
-      await auth.register(name, email, password);
-      // Role is automatically set to 'user'/'client' by the backend
-      router.push("/dashboard");
+      const data = await auth.register(name, email, password);
+      setSuccess(data?.message || "Account created. Verify your email before signing in.");
+      setVerificationUrl(data?.verificationUrl || "");
     } catch (error) {
       console.error("Register error:", error.message);
       setError(error.response?.data?.error || error.message);
@@ -96,6 +98,32 @@ function RegisterForm() {
           }}
         >
           {error}
+        </div>
+      ) : null}
+
+      {success ? (
+        <div
+          style={{
+            marginBottom: "18px",
+            padding: "10px 12px",
+            borderRadius: "10px",
+            background: "rgba(22,163,74,0.1)",
+            border: "1px solid rgba(22,163,74,0.24)",
+            color: "#14532d",
+            fontSize: "13px",
+            fontWeight: 700,
+            textAlign: "left",
+            lineHeight: 1.5,
+          }}
+        >
+          {success}
+          {verificationUrl ? (
+            <div style={{ marginTop: 8 }}>
+              <Link href={verificationUrl} style={{ color: "#000080", fontWeight: 800 }}>
+                Open verification link
+              </Link>
+            </div>
+          ) : null}
         </div>
       ) : null}
 

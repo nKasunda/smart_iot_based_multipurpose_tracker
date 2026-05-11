@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { FiTrash2 } from "react-icons/fi";
 import { getHistory } from "../../lib/api";
-import { useSettings } from "../../context/SettingsContext";
+import { formatDateTime, useSettings } from "../../context/SettingsContext";
 
 const TrackerLeafletMap = dynamic(() => import("../TrackerLeafletMap"), { ssr: false });
 
@@ -13,30 +13,8 @@ function isoFromDatetimeLocal(value) {
   return dt.toISOString();
 }
 
-// ── formats a date string using the user's chosen dateFormat ──
-function formatDate(isoString, dateFormat) {
-  if (!isoString) return "";
-  const dt = new Date(isoString);
-  if (Number.isNaN(dt.getTime())) return isoString;
-
-  const dd   = String(dt.getDate()).padStart(2, "0");
-  const mm   = String(dt.getMonth() + 1).padStart(2, "0");
-  const yyyy = dt.getFullYear();
-  const hh   = String(dt.getHours()).padStart(2, "0");
-  const min  = String(dt.getMinutes()).padStart(2, "0");
-
-  let datePart;
-  switch (dateFormat) {
-    case "MM/DD/YYYY": datePart = `${mm}/${dd}/${yyyy}`; break;
-    case "YYYY-MM-DD": datePart = `${yyyy}-${mm}-${dd}`; break;
-    case "DD/MM/YYYY":
-    default:           datePart = `${dd}/${mm}/${yyyy}`; break;
-  }
-  return `${datePart} ${hh}:${min}`;
-}
-
 export default function History({ devices, latestByDevice, selectedDeviceId, setSelectedDeviceId }) {
-  const { dateFormat } = useSettings();   // ← reads user's chosen format
+  const { dateFormat, clockFormat } = useSettings();
 
   const [from,    setFrom]    = useState("");
   const [to,      setTo]      = useState("");
@@ -64,8 +42,8 @@ export default function History({ devices, latestByDevice, selectedDeviceId, set
       setPath(list);
 
       // ── show formatted date range in the info message ──
-      const fromLabel = from ? formatDate(new Date(from).toISOString(), dateFormat) : "beginning";
-      const toLabel   = to   ? formatDate(new Date(to).toISOString(),   dateFormat) : "now";
+      const fromLabel = from ? formatDateTime(new Date(from).toISOString(), dateFormat, clockFormat) : "beginning";
+      const toLabel   = to   ? formatDateTime(new Date(to).toISOString(),   dateFormat, clockFormat) : "now";
       setInfo(`Loaded ${list.length} points — ${fromLabel} to ${toLabel}`);
 
     } catch (err) {
@@ -127,7 +105,7 @@ export default function History({ devices, latestByDevice, selectedDeviceId, set
             {/* show formatted preview below input */}
             {from && (
               <p style={preview}>
-                {formatDate(new Date(from).toISOString(), dateFormat)}
+                {formatDateTime(new Date(from).toISOString(), dateFormat, clockFormat)}
               </p>
             )}
           </div>
@@ -147,7 +125,7 @@ export default function History({ devices, latestByDevice, selectedDeviceId, set
             {/* show formatted preview below input */}
             {to && (
               <p style={preview}>
-                {formatDate(new Date(to).toISOString(), dateFormat)}
+                {formatDateTime(new Date(to).toISOString(), dateFormat, clockFormat)}
               </p>
             )}
           </div>

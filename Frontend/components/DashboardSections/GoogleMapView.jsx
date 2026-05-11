@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { GoogleMap, LoadScript, Marker, InfoWindow, Polyline } from "@react-google-maps/api";
 import { api } from "../../lib/api";
+import { formatDateTime, useSettings } from "../../context/SettingsContext";
 
 const containerStyle = { width: "100%", height: "865px" };
 const trackerColors = ["#2563eb", "#16a34a", "#dc2626", "#d97706", "#9333ea", "#0ea5e9"];
@@ -8,6 +9,7 @@ const animationSteps = 14;
 const animationIntervalMs = 40;
 
 export default function GoogleMapView({ fullScreen = false }) {
+  const { dateFormat, clockFormat } = useSettings();
   const [trackers, setTrackers] = useState({});
   const trackersRef = useRef({});
   const [trackersHistory, setTrackersHistory] = useState({});
@@ -237,7 +239,7 @@ export default function GoogleMapView({ fullScreen = false }) {
                 <div>{activeInfo}</div>
                 {selectedLocation?.timestamp ? (
                   <div style={{ marginTop: "4px", fontSize: "12px", color: "#4b5563" }}>
-                    {new Date(selectedLocation.timestamp).toLocaleString()}
+                    {formatDateTime(selectedLocation.timestamp, dateFormat, clockFormat)}
                   </div>
                 ) : null}
               </div>

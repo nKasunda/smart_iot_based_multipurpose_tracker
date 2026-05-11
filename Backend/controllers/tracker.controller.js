@@ -298,11 +298,15 @@ exports.ingestSMS = async (req, res) => {
         signalStrength: tracker.signalStrength ?? null,
       };
 
-      // Frontend dashboard listens for this event
-      io.emit("location:update", { location });
+      // Frontend dashboard listens for this event. Admins receive all devices;
+      // users receive only devices assigned to them.
+      io.to("admin").emit("location:update", { location });
+      if (tracker.userId) {
+        io.to(`user:${tracker.userId}`).emit("location:update", { location });
+      }
 
       // Backward-compat for older clients
-      io.emit("tracker-update", {
+      const legacyPayload = {
         trackerId: tracker.device_uid,
         lat,
         lng,
@@ -310,7 +314,11 @@ exports.ingestSMS = async (req, res) => {
         battery: tracker.battery ?? null,
         signal: tracker.signalStrength ?? null,
         location,
-      });
+      };
+      io.to("admin").emit("tracker-update", legacyPayload);
+      if (tracker.userId) {
+        io.to(`user:${tracker.userId}`).emit("tracker-update", legacyPayload);
+      }
     }
 
     return res.sendStatus(200);
@@ -473,26 +481,56 @@ exports.alerts = async (req, res) => {
       limit: 50,
     });
 
+    const poorSignalDevices = await Tracker.findAll({
+      where: {
+        ...accessWhere,
+        signalStrength: {
+          [Op.ne]: null,
+          [Op.lt]: 15,
+        },
+      },
+      order: [
+        ["signalStrength", "ASC"],
+        ["lastSeen", "ASC"],
+      ],
+      limit: 50,
+    });
+
     const items = [
       ...(lowBatteryDevices || []).map((d) => ({
         type: "low_battery",
+        severity: "warning",
         device_uid: d.device_uid,
         imei: d.imei ?? null,
         battery: d.battery ?? null,
         lastSeen: d.lastSeen ?? null,
+        message: `Battery is low${d.battery !== null && d.battery !== undefined ? ` (${d.battery}%)` : ""}`,
       })),
       ...(inactiveDevices || []).map((d) => ({
         type: "inactive",
+        severity: "critical",
         device_uid: d.device_uid,
         imei: d.imei ?? null,
         battery: d.battery ?? null,
         lastSeen: d.lastSeen ?? null,
+        message: "Device has not reported recently",
+      })),
+      ...(poorSignalDevices || []).map((d) => ({
+        type: "poor_signal",
+        severity: "warning",
+        device_uid: d.device_uid,
+        imei: d.imei ?? null,
+        signalStrength: d.signalStrength ?? null,
+        battery: d.battery ?? null,
+        lastSeen: d.lastSeen ?? null,
+        message: `Signal is weak${d.signalStrength !== null && d.signalStrength !== undefined ? ` (${d.signalStrength})` : ""}`,
       })),
     ];
 
     res.json({
       lowBatteryDevices,
       inactiveDevices,
+      poorSignalDevices,
       items,
     });
   } catch (err) {
