@@ -1,0 +1,13 @@
+node_modules
+.next
+npm-debug.log
+Dockerfile
+.dockerignore
+.env
+.env.*
+.git
+public/*.png
+public/*.jpg
+public/*.jpeg
+public/*.webp
+

@@ -245,6 +245,15 @@ exports.ingestSMS = async (req, res) => {
       return res.status(403).json({ error: "Invalid IMEI" });
     }
 
+    // For smartphone trackers, require ingestToken for security
+    if (tracker.type === 'smartphone') {
+      const token = parsed.token || req.body.token;
+      if (!token || token !== tracker.ingestToken) {
+        console.warn("Rejected ingest for smartphone tracker - invalid token:", imei);
+        return res.status(403).json({ error: "Invalid token" });
+      }
+    }
+
     const lat = extractNumber(parsed, ["lat", "latitude"], /\bLAT(?:ITUDE)?\s*[:=]\s*(-?\d+(?:\.\d+)?)/i);
     const lng = extractNumber(parsed, ["lng", "lon", "longitude"], /\b(?:LNG|LON|LONGITUDE)\s*[:=]\s*(-?\d+(?:\.\d+)?)/i);
 
@@ -596,6 +605,43 @@ exports.registerDevice = async (req, res) => {
     return res.json(device);
   } catch (err) {
     console.error("registerDevice error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * Create a smartphone tracker for a user
+ */
+exports.createSmartphoneTracker = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: "Authentication required" });
+
+    const name = req.body?.name ? String(req.body.name).trim() : "My Smartphone";
+
+    // Generate virtual IMEI and token
+    const virtualImei = `APP-${require('crypto').randomUUID()}`;
+    const ingestToken = require('crypto').randomUUID();
+
+    // Create device_uid
+    const device_uid = `PHONE-${Date.now()}`;
+
+    const tracker = await Tracker.create({
+      device_uid,
+      imei: virtualImei,
+      ingestToken,
+      type: 'smartphone',
+      name,
+      userId,
+      status: 'assigned',
+    });
+
+    return res.json({
+      tracker,
+      trackingUrl: `${req.protocol}://${req.get('host')}/phone-tracker?imei=${virtualImei}&token=${ingestToken}`,
+    });
+  } catch (err) {
+    console.error("createSmartphoneTracker error:", err);
     return res.status(500).json({ error: err.message });
   }
 };

@@ -72,6 +72,11 @@ module.exports = (sequelize, DataTypes) => {
     network: {
       type: DataTypes.STRING,
       allowNull: true
+    },
+    ingestToken: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      unique: true
     }
   }, {
     sequelize,

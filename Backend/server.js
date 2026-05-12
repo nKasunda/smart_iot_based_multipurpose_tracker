@@ -27,7 +27,10 @@ const limiter = rateLimit({
 // Socket.io setup
 const server = http.createServer(app);
 const io = require("socket.io")(server, {
-  cors: { origin: "*" },
+  cors: {
+    origin: process.env.SOCKET_CORS_ORIGIN || process.env.FRONTEND_URL || "*",
+    credentials: !!process.env.SOCKET_CORS_CREDENTIALS,
+  },
 });
 app.set("io", io); // make io accessible in controllers
 
@@ -53,7 +56,12 @@ io.use((socket, next) => {
 });
 
 app.use(helmet());
-app.use(cors());
+
+const corsOptions = {
+  origin: process.env.CORS_ORIGIN || process.env.FRONTEND_URL || "*",
+  credentials: !!process.env.CORS_CREDENTIALS,
+};
+app.use(cors(corsOptions));
 app.use(express.json({ limit: "10mb" }));
 // Some SMS forwarder apps send `application/x-www-form-urlencoded` bodies.
 // Accept both JSON and urlencoded to avoid `req.body` being undefined.
@@ -69,8 +77,9 @@ app.get("/health", (req, res) =>
 );
 
 const PORT = process.env.PORT || 5000;
+const HOST = process.env.HOST || "0.0.0.0";
 
-server.listen(PORT, async () => {
+server.listen(PORT, HOST, async () => {
   console.log(`Server running on port ${PORT}`);
   try {
     await sequelize.authenticate();

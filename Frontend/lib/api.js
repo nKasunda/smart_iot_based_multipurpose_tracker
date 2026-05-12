@@ -63,6 +63,11 @@ export async function registerDevice({ device_id, type, userId }) {
   return res.data;
 }
 
+export async function createSmartphoneTracker({ name }) {
+  const res = await api.post("/api/tracker/smartphone", { name });
+  return res.data;
+}
+
 export async function getLatest() {
   const res = await api.get("/api/tracker/latest");
   return res.data;

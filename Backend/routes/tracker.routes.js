@@ -9,6 +9,7 @@ router.get("/stats", authenticate, trackerController.stats);
 router.get("/alerts", authenticate, trackerController.alerts);
 router.get("/devices", authenticate, trackerController.devices);
 router.post("/devices", authenticate, requireAdmin, trackerController.registerDevice);
+router.post("/smartphone", authenticate, trackerController.createSmartphoneTracker);
 router.get("/history", authenticate, trackerController.history);
 router.get("/:device_id/history", authenticate, trackerController.history);
 

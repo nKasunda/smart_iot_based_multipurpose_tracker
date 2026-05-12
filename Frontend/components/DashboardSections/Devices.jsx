@@ -4,6 +4,7 @@ import { FiTrash2, FiEdit2 } from "react-icons/fi";
 import { API_BASE } from "../../lib/config";
 import { getToken } from "../../lib/tokenStorage";
 import { formatDateTime, useSettings } from "../../context/SettingsContext";
+import { createSmartphoneTracker } from "../../lib/api";
 
 function isOnline(lastSeen) {
   if (!lastSeen) return false;
@@ -28,6 +29,11 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
   // User claiming
   const [userImei, setUserImei] = useState("");
   const [userDeviceName, setUserDeviceName] = useState("");
+
+  // Smartphone creation
+  const [smartphoneName, setSmartphoneName] = useState("");
+  const [trackingUrl, setTrackingUrl] = useState("");
+  const [phoneUrls, setPhoneUrls] = useState([]);
 
   const API_URL = process.env.NEXT_PUBLIC_API_BASE || API_BASE || "http://localhost:5000";
   const isAdmin = user?.role === "admin";
@@ -169,6 +175,58 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
     } finally {
       setLoading(false);
     }
+  };
+
+  // Create smartphone tracker
+  const handleCreateSmartphone = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setSuccess("");
+    try {
+      if (!smartphoneName.trim()) {
+        setError("Device name is required");
+        setLoading(false);
+        return;
+      }
+      const result = await createSmartphoneTracker({ name: smartphoneName.trim() });
+      setSuccess("Smartphone tracker created successfully!");
+      setTrackingUrl(result.trackingUrl);
+      setPhoneUrls([...phoneUrls, { name: smartphoneName.trim(), url: result.trackingUrl, createdAt: new Date().toLocaleString() }]);
+      setSmartphoneName("");
+      await onRefresh?.();
+      setTimeout(() => setSuccess(""), 5000);
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to create smartphone tracker");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCopyUrl = async (url) => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+        setSuccess("URL copied to clipboard!");
+        setTimeout(() => setSuccess(""), 2000);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = url;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+        setSuccess("URL copied to clipboard!");
+        setTimeout(() => setSuccess(""), 2000);
+      }
+    } catch (err) {
+      setError("Failed to copy URL");
+      setTimeout(() => setError(""), 2000);
+    }
+  };
+
+  const handleDeletePhoneUrl = (index) => {
+    setPhoneUrls(phoneUrls.filter((_, i) => i !== index));
   };
 
   const handleStartEdit = (device) => {
@@ -422,6 +480,140 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
         </div>
       )}
 
+      {/* USER: Create Smartphone Tracker */}
+      {!isAdmin && (
+        <div
+          style={{
+            borderRadius: 16,
+            background: "#ffffff",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              padding: 16,
+              borderBottom: "1px solid #e5e7eb",
+              background: "#f9fafb",
+              fontWeight: 700,
+              fontSize: 14,
+              color: "#020617",
+            }}
+          >
+            Add Smartphone Tracker
+          </div>
+          <form
+            onSubmit={handleCreateSmartphone}
+            style={{
+              padding: 16,
+              display: "grid",
+              gridTemplateColumns: "1fr 140px",
+              gap: 12,
+              alignItems: "center",
+            }}
+          >
+            <input
+              value={smartphoneName}
+              onChange={(e) => setSmartphoneName(e.target.value)}
+              placeholder="Smartphone Name (e.g., John's iPhone)"
+              style={{
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid #e5e7eb",
+                fontSize: 13,
+              }}
+              required
+            />
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "none",
+                background: loading ? "#6b7280" : "#059669",
+                color: "#ffffff",
+                cursor: loading ? "not-allowed" : "pointer",
+                fontWeight: 700,
+                fontSize: 13,
+                transition: "all 0.2s ease",
+              }}
+            >
+              {loading ? "Creating…" : "Create"}
+            </button>
+          </form>
+          {trackingUrl && (
+            <div
+              style={{
+                padding: "0 16px 16px",
+                background: "#f0fdf4",
+                borderRadius: "0 0 16px 16px",
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: 700,
+                  fontSize: 13,
+                  color: "#166534",
+                  marginBottom: 8,
+                }}
+              >
+                Tracking URL Created!
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "#166534",
+                  marginBottom: 8,
+                  wordBreak: "break-all",
+                }}
+              >
+                {trackingUrl}
+              </div>
+              <button
+                onClick={() => handleCopyUrl(trackingUrl)}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 6,
+                  border: "1px solid #16a34a",
+                  background: "#ffffff",
+                  color: "#16a34a",
+                  cursor: "pointer",
+                  fontSize: 12,
+                  fontWeight: 600,
+                }}
+              >
+                Copy URL
+              </button>
+            </div>
+          )}
+          {error ? (
+            <div
+              style={{
+                padding: "0 16px 16px",
+                color: "#dc2626",
+                fontWeight: 700,
+                fontSize: 13,
+              }}
+            >
+              ❌ {error}
+            </div>
+          ) : null}
+          {success && !trackingUrl ? (
+            <div
+              style={{
+                padding: "0 16px 16px",
+                color: "#16a34a",
+                fontWeight: 700,
+                fontSize: 13,
+              }}
+            >
+              ✓ {success}
+            </div>
+          ) : null}
+        </div>
+      )}
+
       {/* DEVICE LIST */}
       <div
         style={{
@@ -473,7 +665,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
               display: "grid",
               gridTemplateColumns: isAdmin
                 ? "1.2fr 1.2fr 0.9fr 0.9fr 1.3fr 0.7fr 0.7fr 1.2fr 160px"
-                : "1.3fr 1.2fr 0.8fr 0.8fr 1.2fr 120px",
+                : "1.3fr 1.2fr 0.8fr 0.8fr 1.2fr 1.2fr 120px",
               gap: 8,
               padding: "14px 16px",
               fontWeight: 700,
@@ -496,6 +688,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
             <span>Battery</span>
             <span>Online</span>
             <span>Last Seen</span>
+            {!isAdmin && <span>Phone URL</span>}
             <span>Action</span>
           </div>
           {sorted.map((d) => {
@@ -510,7 +703,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
                   display: "grid",
                   gridTemplateColumns: isAdmin
                     ? "1.2fr 1.2fr 0.9fr 0.9fr 1.3fr 0.7fr 0.7fr 1.2fr 100px"
-                    : "1.3fr 1.2fr 0.8fr 0.8fr 1.2fr 100px",
+                    : "1.3fr 1.2fr 0.8fr 0.8fr 1.2fr 1.2fr 100px",
                   gap: 8,
                   padding: "12px 16px",
                   borderTop: "1px solid #eef2f7",
@@ -767,6 +960,92 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
           ) : null}
         </div>
       </div>
+
+      {/* PHONE URLS SECTION */}
+      {!isAdmin && phoneUrls.length > 0 && (
+        <div
+          style={{
+            borderRadius: 16,
+            background: "#ffffff",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              padding: 16,
+              borderBottom: "1px solid #e5e7eb",
+              background: "#f9fafb",
+              fontWeight: 700,
+              fontSize: 14,
+              color: "#020617",
+            }}
+          >
+            My Smartphone Tracking URLs ({phoneUrls.length})
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr 150px",
+              gap: 8,
+              padding: "14px 16px",
+              fontSize: 13,
+            }}
+          >
+            <div style={{ fontWeight: 700, color: "#475569" }}>Device Name</div>
+            <div style={{ fontWeight: 700, color: "#475569" }}>Created</div>
+            <div style={{ fontWeight: 700, color: "#475569", textAlign: "center" }}>Actions</div>
+          </div>
+          {phoneUrls.map((urlItem, idx) => (
+            <div
+              key={idx}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr 150px",
+                gap: 8,
+                padding: "12px 16px",
+                borderTop: "1px solid #e5e7eb",
+                alignItems: "center",
+              }}
+            >
+              <div style={{ fontSize: 13, color: "#1f2937" }}>{urlItem.name}</div>
+              <div style={{ fontSize: 12, color: "#6b7280" }}>{urlItem.createdAt}</div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                <button
+                  onClick={() => handleCopyUrl(urlItem.url)}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 6,
+                    border: "1px solid #3b82f6",
+                    background: "#ffffff",
+                    color: "#3b82f6",
+                    cursor: "pointer",
+                    fontSize: 11,
+                    fontWeight: 600,
+                  }}
+                >
+                  Copy
+                </button>
+                <button
+                  onClick={() => handleDeletePhoneUrl(idx)}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 6,
+                    border: "1px solid #ef4444",
+                    background: "#ffffff",
+                    color: "#ef4444",
+                    cursor: "pointer",
+                    fontSize: 11,
+                    fontWeight: 600,
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
