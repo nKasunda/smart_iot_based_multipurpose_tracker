@@ -39,6 +39,37 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
   const isAdmin = user?.role === "admin";
   const bearer = token || getToken();
   const authConfig = bearer ? { headers: { Authorization: `Bearer ${bearer}` } } : {};
+  const panelStyle = {
+    borderRadius: 16,
+    background: "var(--surface-strong)",
+    boxShadow: "var(--shadow-panel)",
+    overflow: "hidden",
+  };
+  const panelHeadStyle = {
+    padding: 16,
+    borderBottom: "1px solid var(--border)",
+    background: "var(--surface-muted)",
+    fontWeight: 700,
+    fontSize: 14,
+    color: "var(--text)",
+  };
+  const inputStyle = {
+    padding: "10px 12px",
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+    background: "var(--surface-strong)",
+    color: "var(--text)",
+    fontSize: 13,
+  };
+  const smallInputStyle = {
+    width: "100%",
+    padding: "8px 10px",
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+    background: "var(--surface-strong)",
+    color: "var(--text)",
+    fontSize: 12,
+  };
 
   const sorted = useMemo(() => {
     const list = (devices || []).slice();
@@ -281,22 +312,10 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
       {/* ADMIN: Provision New Device Form */}
       {isAdmin && (
         <div
-          style={{
-            borderRadius: 16,
-            background: "#ffffff",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
-            overflow: "hidden",
-          }}
+          style={panelStyle}
         >
           <div
-            style={{
-              padding: 16,
-              borderBottom: "1px solid #e5e7eb",
-              background: "#f9fafb",
-              fontWeight: 700,
-              fontSize: 14,
-              color: "#020617",
-            }}
+            style={panelHeadStyle}
           >
             Provision New Device
           </div>
@@ -315,10 +334,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
               onChange={(e) => setAdminDeviceId(e.target.value)}
               placeholder="Device ID (e.g., A9G_001, ESP32_GPS)"
               style={{
-                padding: "10px 12px",
-                borderRadius: 10,
-                border: "1px solid #e5e7eb",
-                fontSize: 13,
+                ...inputStyle,
               }}
               required
             />
@@ -327,10 +343,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
               onChange={(e) => setAdminImei(e.target.value)}
               placeholder="IMEI"
               style={{
-                padding: "10px 12px",
-                borderRadius: 10,
-                border: "1px solid #e5e7eb",
-                fontSize: 13,
+                ...inputStyle,
               }}
               required
             />
@@ -382,22 +395,10 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
       {/* USER: Claim Device Form */}
       {!isAdmin && (
         <div
-          style={{
-            borderRadius: 16,
-            background: "#ffffff",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
-            overflow: "hidden",
-          }}
+          style={panelStyle}
         >
           <div
-            style={{
-              padding: 16,
-              borderBottom: "1px solid #e5e7eb",
-              background: "#f9fafb",
-              fontWeight: 700,
-              fontSize: 14,
-              color: "#020617",
-            }}
+            style={panelHeadStyle}
           >
             Claim Device
           </div>
@@ -416,10 +417,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
               onChange={(e) => setUserImei(e.target.value)}
               placeholder="IMEI (from device provisioning)"
               style={{
-                padding: "10px 12px",
-                borderRadius: 10,
-                border: "1px solid #e5e7eb",
-                fontSize: 13,
+                ...inputStyle,
               }}
               required
             />
@@ -428,10 +426,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
               onChange={(e) => setUserDeviceName(e.target.value)}
               placeholder="Custom Device Name"
               style={{
-                padding: "10px 12px",
-                borderRadius: 10,
-                border: "1px solid #e5e7eb",
-                fontSize: 13,
+                ...inputStyle,
               }}
               required
             />
@@ -483,22 +478,10 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
       {/* USER: Create Smartphone Tracker */}
       {!isAdmin && (
         <div
-          style={{
-            borderRadius: 16,
-            background: "#ffffff",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
-            overflow: "hidden",
-          }}
+          style={panelStyle}
         >
           <div
-            style={{
-              padding: 16,
-              borderBottom: "1px solid #e5e7eb",
-              background: "#f9fafb",
-              fontWeight: 700,
-              fontSize: 14,
-              color: "#020617",
-            }}
+            style={panelHeadStyle}
           >
             Add Smartphone Tracker
           </div>
@@ -517,10 +500,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
               onChange={(e) => setSmartphoneName(e.target.value)}
               placeholder="Smartphone Name (e.g., John's iPhone)"
               style={{
-                padding: "10px 12px",
-                borderRadius: 10,
-                border: "1px solid #e5e7eb",
-                fontSize: 13,
+                ...inputStyle,
               }}
               required
             />
@@ -617,24 +597,21 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
       {/* DEVICE LIST */}
       <div
         style={{
-          borderRadius: 16,
-          background: "#ffffff",
-          boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
-          overflow: "hidden",
+          ...panelStyle,
         }}
       >
         <div
           style={{
             padding: 16,
-            borderBottom: "1px solid #e5e7eb",
-            background: "#f9fafb",
+            borderBottom: "1px solid var(--border)",
+            background: "var(--surface-muted)",
           }}
         >
           <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
-            <span style={{ fontWeight: 700, fontSize: 14, color: "#020617" }}>
+            <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text)" }}>
               {isAdmin ? `System Inventory` : `My Devices`}
             </span>
-            <span style={{ fontSize: 13, color: "#475569" }}>
+            <span style={{ fontSize: 13, color: "var(--muted)" }}>
               {`(${sorted.length} devices)`}
             </span>
           </div>
@@ -648,7 +625,9 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
                 minWidth: 240,
                 padding: "10px 14px",
                 borderRadius: 12,
-                border: "1px solid #e5e7eb",
+                border: "1px solid var(--border)",
+                background: "var(--surface-strong)",
+                color: "var(--text)",
                 fontSize: 13,
               }}
             />
@@ -669,9 +648,9 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
               gap: 8,
               padding: "14px 16px",
               fontWeight: 700,
-              color: "#475569",
+              color: "var(--text-soft)",
               fontSize: 11,
-              background: "#f3f4f6",
+              background: "var(--surface-muted)",
               justifyItems: "center",
               textAlign: "center",
             }}
@@ -706,9 +685,10 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
                     : "1.3fr 1.2fr 0.8fr 0.8fr 1.2fr 1.2fr 100px",
                   gap: 8,
                   padding: "12px 16px",
-                  borderTop: "1px solid #eef2f7",
+                  borderTop: "1px solid var(--border)",
                   cursor: "pointer",
-                  background: active ? "#eff6ff" : "#ffffff",
+                  background: active ? "var(--primary-soft)" : "var(--surface-strong)",
+                  color: "var(--text)",
                   alignItems: "center",
                   justifyItems: "center",
                   textAlign: "center",
@@ -723,12 +703,11 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
                       width: "100%",
                       padding: "8px 10px",
                       borderRadius: 10,
-                      border: "1px solid #e5e7eb",
-                      fontSize: 12,
+                      ...smallInputStyle,
                     }}
                   />
                 ) : (
-                  <strong style={{ color: "#0f172a" }}>
+                  <strong style={{ color: "var(--text)" }}>
                     {isAdmin ? (d.device_uid || "null") : (d.name || d.device_uid || "null")}
                   </strong>
                 )}
@@ -741,14 +720,13 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
                       width: "100%",
                       padding: "8px 10px",
                       borderRadius: 10,
-                      border: "1px solid #e5e7eb",
-                      fontSize: 12,
+                      ...smallInputStyle,
                     }}
                   />
                 ) : (
                   <span
                     style={{
-                      color: "#0f172a",
+                      color: "var(--text)",
                       fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
                       fontSize: 11,
                       whiteSpace: "nowrap",
@@ -786,7 +764,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
                     </span>
 
                     {/* Owner: User name/email or dash */}
-                    <span style={{ color: "#64748b", fontSize: 10 }}>
+                    <span style={{ color: "var(--muted)", fontSize: 10 }}>
                       {isEditing ? (
                         <input
                           value={editFields.ownerEmail}
@@ -796,14 +774,13 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
                             width: "100%",
                             padding: "8px 10px",
                             borderRadius: 10,
-                            border: "1px solid #e5e7eb",
-                            fontSize: 12,
+                            ...smallInputStyle,
                           }}
                         />
                       ) : d.user ? (
                         <div>
                           <div style={{ fontWeight: 600 }}>{d.user.name || "null"}</div>
-                          <div style={{ color: "#9ca3af" }}>{d.user.email || "null"}</div>
+                          <div style={{ color: "var(--muted)" }}>{d.user.email || "null"}</div>
                         </div>
                       ) : (
                         "—"
@@ -825,7 +802,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
                   }}
                   title={online ? "Online" : "Offline"}
                 />
-                <span style={{ color: "#64748b", fontSize: 10 }}>
+                <span style={{ color: "var(--muted)", fontSize: 10 }}>
                   {d.lastSeen ? formatDateTime(d.lastSeen, dateFormat, clockFormat) : "null"}
                 </span>
                 <div
@@ -864,9 +841,9 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
                           style={{
                             padding: "6px 10px",
                             borderRadius: "8px",
-                            border: "1px solid #e5e7eb",
-                            background: "#ffffff",
-                            color: "#0f172a",
+                            border: "1px solid var(--border)",
+                            background: "var(--surface-strong)",
+                            color: "var(--text)",
                             cursor: loading ? "not-allowed" : "pointer",
                             fontWeight: 700,
                             fontSize: 12,
@@ -888,9 +865,9 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
                             height: 36,
                             padding: 0,
                             borderRadius: "10px",
-                            border: "1px solid #e5e7eb",
-                            background: "#ffffff",
-                            color: "#0f172a",
+                            border: "1px solid var(--border)",
+                            background: "var(--surface-strong)",
+                            color: "var(--text)",
                             cursor: loading ? "not-allowed" : "pointer",
                             display: "inline-flex",
                             alignItems: "center",
@@ -907,8 +884,9 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
                           style={{
                             padding: "8px",
                             borderRadius: "8px",
-                            border: "1px solid #e5e7eb",
-                            background: "#ffffff",
+                            border: "1px solid var(--border)",
+                            background: "var(--surface-strong)",
+                            color: "var(--text)",
                             cursor: loading ? "not-allowed" : "pointer",
                             fontWeight: 700,
                             fontSize: 12,
@@ -919,10 +897,10 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
                             opacity: loading ? 0.6 : 1,
                           }}
                           onMouseEnter={(e) => {
-                            e.currentTarget.style.background = "#f3f4f6";
+                            e.currentTarget.style.background = "var(--surface-muted)";
                           }}
                           onMouseLeave={(e) => {
-                            e.currentTarget.style.background = "#ffffff";
+                            e.currentTarget.style.background = "var(--surface-strong)";
                           }}
                         >
                           <FiTrash2 size={14} />

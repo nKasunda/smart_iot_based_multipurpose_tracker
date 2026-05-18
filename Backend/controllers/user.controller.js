@@ -15,6 +15,7 @@ const publicUser = (user) => ({
 });
 
 const allowedSettings = new Set([
+  "uiTheme",
   "clockFormat",
   "dateFormat",
   "distanceUnit",
@@ -24,6 +25,7 @@ const allowedSettings = new Set([
   "alertCritical",
   "alertWarning",
   "alertInfo",
+  "mapStyle",
 ]);
 
 exports.updateProfile = async (req, res) => {

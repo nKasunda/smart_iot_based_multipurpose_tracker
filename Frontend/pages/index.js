@@ -9,11 +9,12 @@ function App() {
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
-        minHeight: "100vh",
+        minHeight: "100dvh",
         color: "white",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        padding: "24px 16px",
       }}
     >
       <SignInForm />

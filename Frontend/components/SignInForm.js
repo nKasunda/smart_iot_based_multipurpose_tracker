@@ -68,9 +68,10 @@ function SignInForm() {
       onSubmit={handleSubmit}
       style={{
         backgroundColor: "white",
-        padding: "40px",
+        padding: "clamp(22px, 5vw, 40px)",
         borderRadius: "15px",
-        width: "400px",
+        width: "min(400px, calc(100vw - 32px))",
+        maxWidth: "100%",
         boxShadow: "0 6px 12px rgba(0,0,0,0.5)",
         fontFamily: "'Roboto', sans-serif",
       }}
@@ -78,11 +79,11 @@ function SignInForm() {
       {/* Heading */}
       <h2
         style={{
-          marginBottom: "30px",
+          marginBottom: "clamp(18px, 4vw, 30px)",
           color: "black",
           textAlign: "center",
           fontWeight: 700,
-          fontSize: "22px",
+          fontSize: "clamp(18px, 5vw, 22px)",
         }}
       >
         Sign in to your account
@@ -107,7 +108,7 @@ function SignInForm() {
       ) : null}
 
       {/* Email Field */}
-      <div style={{ width: "100%", marginBottom: "25px" }}>
+      <div style={{ width: "100%", marginBottom: "clamp(16px, 3vw, 25px)" }}>
         <label
           htmlFor="email"
           style={{
@@ -222,7 +223,7 @@ function SignInForm() {
       </div>
 
       {/* Forgot Password Link */}
-      <div style={{ textAlign: "right", marginBottom: "30px" }}>
+      <div style={{ textAlign: "right", marginBottom: "clamp(18px, 4vw, 30px)" }}>
         <Link
           href="/forgot-password"
           style={{
@@ -370,6 +371,17 @@ function SignInForm() {
           opacity: 0.72;
           cursor: not-allowed;
           transform: none;
+        }
+
+        @media (max-width: 420px), (max-height: 680px) {
+          .sign-in-button,
+          .google-button {
+            height: 42px;
+          }
+
+          .divider {
+            margin: 12px 0;
+          }
         }
 
         @keyframes spin {

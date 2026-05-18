@@ -23,15 +23,18 @@ function SideMenu({ isOpen, toggle, activeItem, onSelect, stats }) {
   ];
   return (
     <aside
+      className={`side-menu ${isOpen ? "is-open" : "is-closed"}`}
       style={{
         width: isOpen ? "240px" : "70px",
+        flex: `0 0 ${isOpen ? "240px" : "70px"}`,
         transition: "width 0.3s ease",
-        backgroundColor: "#ffffff",
-        height: "100vh",
+        backgroundColor: "var(--surface-strong)",
+        height: "100dvh",
+        maxHeight: "100dvh",
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
-        borderRight: "1px solid #e5e7eb",
+        borderRight: "1px solid var(--border)",
         fontFamily: "var(--font-sans)",
       }}
     >
@@ -42,7 +45,7 @@ function SideMenu({ isOpen, toggle, activeItem, onSelect, stats }) {
           alignItems: "center",
           justifyContent: isOpen ? "space-between" : "center",
           padding: isOpen ? "0 16px" : "0",
-          borderBottom: "1px solid #e5e7eb",
+          borderBottom: "1px solid var(--border)",
         }}
       >
         {isOpen && (
@@ -52,7 +55,7 @@ function SideMenu({ isOpen, toggle, activeItem, onSelect, stats }) {
               style={{
                 fontSize: "22px",
                 fontWeight: 800,
-                color: "#0f172a",
+                color: "var(--text)",
                 fontFamily: "var(--font-display)",
               }}
             >
@@ -102,7 +105,7 @@ function SideMenu({ isOpen, toggle, activeItem, onSelect, stats }) {
                   display: "flex",
                   alignItems: "center",
                   position: "relative",
-                  color: isActive ? "#020617" : "#64748b",
+                  color: isActive ? "var(--text)" : "var(--muted)",
                 }}
               >
                 {item.icon}
@@ -151,7 +154,7 @@ function SideMenu({ isOpen, toggle, activeItem, onSelect, stats }) {
 const iconButtonStyle = {
   background: "none",
   border: "none",
-  color: "#334155",
+  color: "var(--text-soft)",
   fontSize: "20px",
   cursor: "pointer",
 };
@@ -162,15 +165,15 @@ const menuItemStyle = {
   gap: "10px",
   borderRadius: "6px",
   cursor: "pointer",
-  color: "#1e293b",
+  color: "var(--text-soft)",
   fontSize: "14px",
   fontWeight: "500",
   transition: "background 0.15s ease, transform 0.1s ease",
 };
 
 const activeMenuItemStyle = {
-  backgroundColor: "#f1f5f9",
-  borderLeft: "3px solid #020617",
+  backgroundColor: "var(--surface-muted)",
+  borderLeft: "3px solid var(--text)",
 };
 
 const badgeStyle = {
@@ -189,14 +192,14 @@ const statusCardStyle = {
   margin: "12px 14px",
   padding: "12px",
   borderRadius: "10px",
-  background: "rgba(248, 250, 252, 0.85)",
+  background: "var(--surface-muted)",
   backdropFilter: "blur(8px)",
-  border: "1px solid rgba(0,0,0,0.06)",
+  border: "1px solid var(--border)",
   display: "flex",
   flexDirection: "column",
   gap: "8px",
   fontSize: "13px",
-  color: "#0f172a",
+  color: "var(--text)",
 };
 
 const statusTitleStyle = {
@@ -205,7 +208,7 @@ const statusTitleStyle = {
   gap: "6px",
   fontWeight: "700",
   marginBottom: "4px",
-  color: "#020617",
+  color: "var(--text)",
 };
 
 const statusItemStyle = {
@@ -214,11 +217,11 @@ const statusItemStyle = {
 };
 
 const labelStyle = {
-  color: "#64748b",
+  color: "var(--muted)",
 };
 
 const valueStyle = {
-  color: "#020617",
+  color: "var(--text)",
   fontWeight: "600",
 };
 

@@ -1,8 +1,32 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip, useMap, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip, useMap } from "react-leaflet";
 import { FiMaximize2 } from "react-icons/fi";
 import L from "leaflet";
 import { formatDateTime, useSettings } from "../context/SettingsContext";
+
+const MAP_LAYERS = [
+  {
+    key: "street",
+    label: "Street",
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19,
+  },
+  {
+    key: "satellite",
+    label: "Satellite",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles &copy; Esri",
+    maxZoom: 19,
+  },
+  {
+    key: "terrain",
+    label: "Terrain",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles &copy; Esri",
+    maxZoom: 19,
+  },
+];
 
 function FlyTo({ center }) {
   const map = useMap();
@@ -13,18 +37,24 @@ function FlyTo({ center }) {
   return null;
 }
 
-function PopupStateSync({ onPopupDeviceChange }) {
-  useMapEvents({
-    popupopen: (e) => {
-      const deviceId = e?.popup?._source?.options?.deviceId ?? null;
-      onPopupDeviceChange?.(deviceId);
-    },
-    popupclose: (e) => {
-      const deviceId = e?.popup?._source?.options?.deviceId ?? null;
-      onPopupDeviceChange?.((prev) => (prev === deviceId ? null : prev));
-    },
-  });
-  return null;
+function MapStyleControl({ mapStyle, onChange }) {
+  return (
+    <div className="leaflet-bottom leaflet-center tracker-map-style-control">
+      <div className="tracker-map-style-panel" role="group" aria-label="Map style">
+        {MAP_LAYERS.map((layer) => (
+          <button
+            key={layer.key}
+            type="button"
+            className={mapStyle === layer.key ? "is-active" : ""}
+            onClick={() => onChange?.(layer.key)}
+            aria-pressed={mapStyle === layer.key}
+          >
+            {layer.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function FitAllControl({ entries }) {
@@ -114,7 +144,7 @@ export default function TrackerLeafletMap({
   onSelectDeviceId,
   selectedPath,
 }) {
-  const { dateFormat, clockFormat } = useSettings();
+  const { dateFormat, clockFormat, mapStyle, save } = useSettings();
   const allEntries = useMemo(() => Object.entries(latestByDevice || {}), [latestByDevice]);
   const entries = useMemo(
     () => allEntries.filter(([, loc]) => Number.isFinite(loc?.lat) && Number.isFinite(loc?.lng)),
@@ -122,7 +152,12 @@ export default function TrackerLeafletMap({
   );
   const selected = selectedDeviceId ? latestByDevice?.[selectedDeviceId] : null;
   const [pathHoverLatLng, setPathHoverLatLng] = useState(null);
-  const [openPopupDeviceId, setOpenPopupDeviceId] = useState(null);
+
+  const activeLayer = useMemo(
+    () => MAP_LAYERS.find((layer) => layer.key === mapStyle) ?? MAP_LAYERS[0],
+    [mapStyle]
+  );
+
 
   const validCenter = selected && Number.isFinite(selected.lat) && Number.isFinite(selected.lng)
     ? [selected.lat, selected.lng]
@@ -148,12 +183,14 @@ export default function TrackerLeafletMap({
       scrollWheelZoom
     >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        key={activeLayer.key}
+        attribution={activeLayer.attribution}
+        url={activeLayer.url}
+        maxZoom={activeLayer.maxZoom}
       />
 
       <FlyTo center={validCenter} />
-      <PopupStateSync onPopupDeviceChange={setOpenPopupDeviceId} />
+      <MapStyleControl mapStyle={mapStyle} onChange={(nextStyle) => save({ mapStyle: nextStyle })} />
       <FitAllControl entries={entries} />
 
       {Array.isArray(selectedPath) && selectedPath.length >= 2 ? (
@@ -171,7 +208,7 @@ export default function TrackerLeafletMap({
             mouseout: () => setPathHoverLatLng(null),
           }}
         >
-          <Tooltip sticky direction="top" opacity={0.95}>
+          <Tooltip sticky direction="top" opacity={0.95} className="path-coordinate-tooltip">
             {pathHoverLatLng
               ? `lat: ${pathHoverLatLng.lat.toFixed(6)}, lng: ${pathHoverLatLng.lng.toFixed(6)}`
               : "Move along path"}
@@ -184,12 +221,12 @@ export default function TrackerLeafletMap({
         const selectedMarker = deviceId === selectedDeviceId;
         const online = isOnlineFromTimestamp(loc?.timestamp || loc?.lastSeen || loc?.last_seen);
         const signalInfo = getSignalInfo(loc?.signalStrength ?? loc?.signal ?? loc?.signal_strength);
-	        const displayName = loc?.deviceName || loc?.name || deviceId;
-	        const batteryColor = getBatteryColor(loc.battery);
-	        const baseColor = batteryColor ?? ["#2563eb", "#16a34a", "#f59e0b", "#9333ea"][idx % 4];
-	        const color = online ? (selectedMarker ? "#ef4444" : baseColor) : "#9ca3af";
+        const displayName = loc?.deviceName || loc?.name || deviceId;
+        const batteryColor = getBatteryColor(loc.battery);
+        const baseColor = batteryColor ?? ["#2563eb", "#16a34a", "#f59e0b", "#9333ea"][idx % 4];
+        const color = online ? (selectedMarker ? "#ef4444" : baseColor) : "#9ca3af";
 
-	        return (
+        return (
           <Marker
             key={deviceId}
             position={[loc.lat, loc.lng]}
@@ -199,86 +236,54 @@ export default function TrackerLeafletMap({
             eventHandlers={{
               click: () => {
                 onSelectDeviceId?.(deviceId);
-                setOpenPopupDeviceId(deviceId);
               },
             }}
           >
-            {openPopupDeviceId === deviceId ? null : (
-              <Tooltip
-                className="device-name-tooltip"
-                direction="top"
-                offset={[0, -12]}
-                opacity={1}
-              >
-                {displayName}
-              </Tooltip>
-            )}
+            <Tooltip
+              className="device-name-tooltip"
+              direction="top"
+              offset={[0, -12]}
+              opacity={1}
+            >
+              {displayName}
+            </Tooltip>
 
-            <Popup>
-              <div
-                style={{
-                  minWidth: 240,
-                  fontFamily: "var(--font-sans)",
-                  fontSize: 13,
-                }}
-              >
-                <div style={{ fontWeight: 900, fontSize: 14, marginBottom: 8, color: "#020617" }}>
+            <Popup className="device-location-popup">
+              <div className="device-location-popup__content">
+                <div className="device-location-popup__title">
                   {displayName}
                 </div>
-                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 10 }}>
-                  Device ID: <span style={{ fontWeight: 700, color: "#0f172a" }}>{deviceId}</span>
+                <div className="device-location-popup__meta">
+                  Device ID: <span>{deviceId}</span>
                 </div>
                 {loc?.imei ? (
-                  <div style={{ fontSize: 12, color: "#64748b", marginBottom: 10 }}>
+                  <div className="device-location-popup__meta">
                     IMEI:{" "}
-                    <span
-                      style={{
-                        fontWeight: 800,
-                        color: "#0f172a",
-                        fontFamily:
-                          "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-                        fontSize: 11,
-                      }}
-                    >
+                    <span className="device-location-popup__mono">
                       {String(loc.imei)}
                     </span>
                   </div>
                 ) : null}
 
                 {loc.timestamp ? (
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: "#6b7280",
-                      marginBottom: 10,
-                      paddingBottom: 10,
-                      borderBottom: "1px solid #e5e7eb",
-                    }}
-                  >
+                  <div className="device-location-popup__timestamp">
                     Last update: {formatDateTime(loc.timestamp, dateFormat, clockFormat)}
                   </div>
                 ) : null}
 
-                <div style={{ display: "grid", gap: 8 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "#6b7280" }}>Latitude:</span>
-                    <span style={{ fontWeight: 600 }}>{loc.lat.toFixed(6)}</span>
+                <div className="device-location-popup__grid">
+                  <div className="device-location-popup__row">
+                    <span>Latitude:</span>
+                    <strong>{loc.lat.toFixed(6)}</strong>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "#6b7280" }}>Longitude:</span>
-                    <span style={{ fontWeight: 600 }}>{loc.lng.toFixed(6)}</span>
+                  <div className="device-location-popup__row">
+                    <span>Longitude:</span>
+                    <strong>{loc.lng.toFixed(6)}</strong>
                   </div>
 
                   {"battery" in loc ? (
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        paddingTop: 8,
-                        borderTop: "1px solid #e5e7eb",
-                      }}
-                    >
-                      <span style={{ color: "#6b7280" }}>Battery:</span>
+                    <div className="device-location-popup__row device-location-popup__row--split">
+                      <span>Battery:</span>
                       <span
                         style={{
                           fontWeight: 700,
@@ -290,13 +295,8 @@ export default function TrackerLeafletMap({
                     </div>
                   ) : null}
 
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                    }}
-                  >
-                    <span style={{ color: "#6b7280" }}>Signal strength:</span>
+                  <div className="device-location-popup__row">
+                    <span>Signal strength:</span>
                     <span style={{ fontWeight: 800, color: signalInfo.color }}>
                       {signalInfo.label}
                       {signalInfo.quality ? ` (${signalInfo.quality})` : ""}

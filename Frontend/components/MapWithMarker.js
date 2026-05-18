@@ -3,6 +3,42 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { useEffect, useState } from "react";
 import L from "leaflet";
+import { useSettings } from "../context/SettingsContext";
+
+const MAP_LAYERS = {
+  street: {
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  },
+  satellite: {
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles &copy; Esri",
+  },
+  terrain: {
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles &copy; Esri",
+  },
+};
+
+function MapStyleControl({ mapStyle, save }) {
+  return (
+    <div className="leaflet-bottom leaflet-center tracker-map-style-control">
+      <div className="tracker-map-style-panel" role="group" aria-label="Map style">
+        {["street", "satellite", "terrain"].map((style) => (
+          <button
+            key={style}
+            type="button"
+            className={mapStyle === style ? "is-active" : ""}
+            onClick={() => save({ mapStyle: style })}
+            aria-pressed={mapStyle === style}
+          >
+            {style === "satellite" ? "Satellite" : style[0].toUpperCase() + style.slice(1)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // Beating marker icon
 const pulsingIcon = L.divIcon({
@@ -23,7 +59,9 @@ function Recenter({ lat, lng }) {
 }
 
 export default function Home() {
+  const { mapStyle, save } = useSettings();
   const [location, setLocation] = useState(null);
+  const activeLayer = MAP_LAYERS[mapStyle] || MAP_LAYERS.street;
 
   // Fetch latest location every 5s
   useEffect(() => {
@@ -51,13 +89,16 @@ export default function Home() {
           style={{ height: "100%", width: "100%" }}
         >
           <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            key={mapStyle}
+            attribution={activeLayer.attribution}
+            url={activeLayer.url}
           />
+          <MapStyleControl mapStyle={mapStyle} save={save} />
           <Marker
             position={[location.latitude, location.longitude]}
             icon={pulsingIcon}
           >
-            <Popup> IoT Device Location</Popup>
+            <Popup className="device-location-popup">IoT Device Location</Popup>
           </Marker>
           <Recenter lat={location.latitude} lng={location.longitude} />
         </MapContainer>

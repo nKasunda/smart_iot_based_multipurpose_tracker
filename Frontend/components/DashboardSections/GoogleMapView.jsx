@@ -7,9 +7,19 @@ const containerStyle = { width: "100%", height: "865px" };
 const trackerColors = ["#2563eb", "#16a34a", "#dc2626", "#d97706", "#9333ea", "#0ea5e9"];
 const animationSteps = 14;
 const animationIntervalMs = 40;
+const googleMapTypes = {
+  street: "roadmap",
+  satellite: "satellite",
+  terrain: "terrain",
+};
+const mapStyleOptions = [
+  { key: "street", label: "Street" },
+  { key: "satellite", label: "Satellite" },
+  { key: "terrain", label: "Terrain" },
+];
 
 export default function GoogleMapView({ fullScreen = false }) {
-  const { dateFormat, clockFormat } = useSettings();
+  const { dateFormat, clockFormat, mapStyle, save } = useSettings();
   const [trackers, setTrackers] = useState({});
   const trackersRef = useRef({});
   const [trackersHistory, setTrackersHistory] = useState({});
@@ -142,6 +152,11 @@ export default function GoogleMapView({ fullScreen = false }) {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (!mapRef.current) return;
+    mapRef.current.setMapTypeId(googleMapTypes[mapStyle] || googleMapTypes.street);
+  }, [mapStyle]);
+
   const trackerIds = Object.keys(trackers);
   const selectedLocation = selectedTracker ? trackers[selectedTracker] : null;
 
@@ -188,6 +203,24 @@ export default function GoogleMapView({ fullScreen = false }) {
         </button>
       </div>
 
+      <div
+        className="google-map-style-control"
+        role="group"
+        aria-label="Map style"
+      >
+        {mapStyleOptions.map((option) => (
+          <button
+            key={option.key}
+            type="button"
+            className={mapStyle === option.key ? "is-active" : ""}
+            onClick={() => save({ mapStyle: option.key })}
+            aria-pressed={mapStyle === option.key}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+
       <LoadScript googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}>
         <GoogleMap
           mapContainerStyle={containerStyle}
@@ -198,8 +231,12 @@ export default function GoogleMapView({ fullScreen = false }) {
             fullscreenControl: fullScreen,
             streetViewControl: false,
             mapTypeControl: false,
+            mapTypeId: googleMapTypes[mapStyle] || googleMapTypes.street,
           }}
-          onLoad={(map) => (mapRef.current = map)}
+          onLoad={(map) => {
+            mapRef.current = map;
+            map.setMapTypeId(googleMapTypes[mapStyle] || googleMapTypes.street);
+          }}
         >
           {trackerIds.map((trackerId, index) => {
             const path = trackersHistory[trackerId];
@@ -235,10 +272,10 @@ export default function GoogleMapView({ fullScreen = false }) {
 
           {activeInfo && trackers[activeInfo] && (
             <InfoWindow position={trackers[activeInfo]} onCloseClick={() => setActiveInfo(null)}>
-              <div style={{ fontWeight: "700", color: "#000", backgroundColor: "#fff", padding: "8px 10px", borderRadius: "8px", border: "1px solid #2563eb" }}>
+              <div className="google-device-info-window">
                 <div>{activeInfo}</div>
                 {selectedLocation?.timestamp ? (
-                  <div style={{ marginTop: "4px", fontSize: "12px", color: "#4b5563" }}>
+                  <div className="google-device-info-window__time">
                     {formatDateTime(selectedLocation.timestamp, dateFormat, clockFormat)}
                   </div>
                 ) : null}

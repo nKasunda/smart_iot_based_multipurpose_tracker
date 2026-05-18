@@ -62,6 +62,16 @@ export default function DashboardPage() {
     if (!auth.isAuthed) router.replace("/");
   }, [auth.booting, auth.isAuthed, router]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const syncMenu = () => {
+      if (window.innerWidth <= 760) setMenuOpen(false);
+    };
+    syncMenu();
+    window.addEventListener("resize", syncMenu);
+    return () => window.removeEventListener("resize", syncMenu);
+  }, []);
+
   const filteredDevices = useMemo(() => {
     if (!auth.user) return devices;
     if (auth.user.role === "admin") return devices;
@@ -205,7 +215,7 @@ export default function DashboardPage() {
   if (!auth.isAuthed) return null;
 
   return (
-    <div style={{ display: "flex", height: "100vh" }}>
+    <div className="dashboard-app-shell" style={{ display: "flex", height: "100dvh", overflow: "hidden" }}>
 
       {/* ── Sidebar ───────────────────────────────────────── */}
       <SideMenu
@@ -229,7 +239,7 @@ export default function DashboardPage() {
       />
 
       {/* ── Main area ─────────────────────────────────────── */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+      <div className="dashboard-workspace" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0, height: "100dvh", overflow: "hidden" }}>
 
         <DashboardHeader
           user={auth.user}
@@ -242,11 +252,12 @@ export default function DashboardPage() {
           }}
         />
 
-        <main style={{
+        <main className="dashboard-main-scroll" style={{
           flex: 1,
           padding: "24px",
-          backgroundColor: "#f8fafc",
+          backgroundColor: "var(--app-bg)",
           overflowY: "auto",
+          minHeight: 0,
         }}>
           <ActiveComponent
             user={auth.user}

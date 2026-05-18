@@ -6,6 +6,7 @@ import { useAuth } from "./AuthContext";
 const SettingsContext = createContext();
 
 const DEFAULT_SETTINGS = {
+  uiTheme: "light",
   clockFormat: "12h",
   alertEmail: true,
   alertPush: false,
@@ -15,7 +16,19 @@ const DEFAULT_SETTINGS = {
   alertCritical: true,
   alertWarning: true,
   alertInfo: false,
+  mapStyle: "street",
 };
+
+const UI_THEMES = ["light", "dark", "device"];
+const MAP_STYLES = ["street", "satellite", "terrain"];
+
+function normalizeUiTheme(value) {
+  return UI_THEMES.includes(value) ? value : DEFAULT_SETTINGS.uiTheme;
+}
+
+function normalizeMapStyle(value) {
+  return MAP_STYLES.includes(value) ? value : DEFAULT_SETTINGS.mapStyle;
+}
 
 export function formatDateTime(value, dateFormat = "DD/MM/YYYY", clockFormat = "12h") {
   if (!value) return "—";
@@ -45,6 +58,7 @@ export function formatDateTime(value, dateFormat = "DD/MM/YYYY", clockFormat = "
 export function SettingsProvider({ children }) {
   const auth = useAuth();
   const [clockFormat,   setClockFormat]   = useState(DEFAULT_SETTINGS.clockFormat);
+  const [uiTheme,       setUiTheme]       = useState(DEFAULT_SETTINGS.uiTheme);
   const [alertEmail,    setAlertEmail]    = useState(DEFAULT_SETTINGS.alertEmail);
   const [alertPush,     setAlertPush]     = useState(DEFAULT_SETTINGS.alertPush);
   const [dateFormat,    setDateFormat]    = useState(DEFAULT_SETTINGS.dateFormat);
@@ -53,9 +67,14 @@ export function SettingsProvider({ children }) {
   const [alertCritical, setAlertCritical] = useState(DEFAULT_SETTINGS.alertCritical);
   const [alertWarning,  setAlertWarning]  = useState(DEFAULT_SETTINGS.alertWarning);
   const [alertInfo,     setAlertInfo]     = useState(DEFAULT_SETTINGS.alertInfo);
+  const [preferredColorScheme, setPreferredColorScheme] = useState("light");
+  const [mapStyle,      setMapStyle]      = useState(DEFAULT_SETTINGS.mapStyle);
+  const effectiveTheme = uiTheme === "device" ? preferredColorScheme : uiTheme;
 
   const applySettings = (s = {}) => {
+    if (s.uiTheme      !== undefined) setUiTheme(normalizeUiTheme(s.uiTheme));
     if (s.clockFormat  !== undefined) setClockFormat(s.clockFormat);
+    if (s.mapStyle     !== undefined) setMapStyle(normalizeMapStyle(s.mapStyle));
     if (s.alertEmail   !== undefined) setAlertEmail(s.alertEmail);
     if (s.alertPush    !== undefined) setAlertPush(s.alertPush);
     if (s.dateFormat   !== undefined) setDateFormat(s.dateFormat);
@@ -65,6 +84,27 @@ export function SettingsProvider({ children }) {
     if (s.alertWarning  !== undefined) setAlertWarning(s.alertWarning);
     if (s.alertInfo     !== undefined) setAlertInfo(s.alertInfo);
   };
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.documentElement.dataset.theme = effectiveTheme;
+    document.documentElement.dataset.themePreference = uiTheme;
+    document.documentElement.style.colorScheme = effectiveTheme;
+  }, [effectiveTheme, uiTheme]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const query = window.matchMedia("(prefers-color-scheme: dark)");
+    const syncPreferredScheme = () => setPreferredColorScheme(query.matches ? "dark" : "light");
+
+    syncPreferredScheme();
+    if (query.addEventListener) query.addEventListener("change", syncPreferredScheme);
+    else query.addListener?.(syncPreferredScheme);
+    return () => {
+      if (query.removeEventListener) query.removeEventListener("change", syncPreferredScheme);
+      else query.removeListener?.(syncPreferredScheme);
+    };
+  }, []);
 
   // Load saved settings from localStorage on first render
   useEffect(() => {
@@ -94,6 +134,12 @@ export function SettingsProvider({ children }) {
     try {
       const current = JSON.parse(localStorage.getItem("tracka_settings") || "{}");
       const next = { ...current, ...patch };
+      if (next.uiTheme !== undefined) {
+        next.uiTheme = normalizeUiTheme(next.uiTheme);
+      }
+      if (next.mapStyle !== undefined) {
+        next.mapStyle = normalizeMapStyle(next.mapStyle);
+      }
       localStorage.setItem("tracka_settings", JSON.stringify(next));
     } catch {
       // ignore
@@ -112,18 +158,24 @@ export function SettingsProvider({ children }) {
   };
 
   return (
-    <SettingsContext.Provider value={{
-      clockFormat,
-      alertEmail,
-      alertPush,
-      dateFormat,
-      distanceUnit,
-      timezone,
-      alertCritical,
-      alertWarning,
-      alertInfo,
-      save,
-    }}>
+    <SettingsContext.Provider
+      value={{
+        clockFormat,
+        uiTheme,
+        effectiveTheme,
+        mapStyle,
+        alertEmail,
+        alertPush,
+        dateFormat,
+        distanceUnit,
+        timezone,
+        alertCritical,
+        alertWarning,
+        alertInfo,
+        preferredColorScheme,
+        save,
+      }}
+    >
       {children}
     </SettingsContext.Provider>
   );

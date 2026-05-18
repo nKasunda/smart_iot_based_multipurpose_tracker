@@ -10,17 +10,21 @@ function AdminPage() {
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
-        minHeight: "100vh",
-        color: "white"
+        minHeight: "100dvh",
+        color: "white",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "24px 16px",
       }}
     >
     
-      <main style={{ padding: "150px", textAlign: "center" }}>
+      <main style={{ width: "100%", maxWidth: 460, textAlign: "center" }}>
        <h2
         style={{
           fontFamily: "'Playfair Display', serif",
-          fontSize: "2.5rem",
-          marginBottom: "40px",
+          fontSize: "clamp(1.5rem, 7vw, 2.5rem)",
+          marginBottom: "clamp(18px, 5vw, 40px)",
           textShadow: "2px 2px 4px rgba(0,0,0,0.5)",
         }}
       >

@@ -158,7 +158,7 @@ export default function Overview({
           height: "540px",
           borderRadius: "16px",
           overflow: "hidden",
-          backgroundColor: "#ffffff",
+          backgroundColor: "var(--surface-strong)",
           boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
           display: "flex",
           flexDirection: "column",
@@ -179,7 +179,7 @@ export default function Overview({
           width: "100%",
           borderRadius: "16px",
           overflow: "hidden",
-          backgroundColor: "#ffffff",
+          backgroundColor: "var(--surface-strong)",
           boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
           display: "flex",
           flexDirection: "column",
@@ -192,11 +192,11 @@ export default function Overview({
             gap: "8px",
             padding: "12px 20px",
             borderBottom: "1px solid #e5e7eb",
-            background: "linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)",
+            background: "var(--surface-muted)",
           }}
         >
           <FiBell size={20} color="#ef4444" />
-          <span style={{ fontWeight: "800", fontSize: "16px", color: "#0f172a" }}>Alerts</span>
+          <span style={{ fontWeight: "800", fontSize: "16px", color: "var(--text)" }}>Alerts</span>
         </div>
 
         <div style={{ padding: 20 }}>
@@ -217,7 +217,7 @@ export default function Overview({
                     border: "1px solid #e5e7eb",
                     marginBottom: 10,
                     gap: 10,
-                    background: "#ffffff",
+                    background: "var(--surface-strong)",
                   }}
                 >
                   <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
