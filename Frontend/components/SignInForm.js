@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
-import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { getRedirectResult, GoogleAuthProvider, signInWithPopup, signInWithRedirect } from "firebase/auth";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useAuth } from "../context/AuthContext";
@@ -22,6 +22,36 @@ function SignInForm() {
   const [error, setError] = useState("");
   const router = useRouter();
   const appAuth = useAuth();
+  const checkedGoogleRedirect = useRef(false);
+
+  const finishGoogleSignIn = async (credential) => {
+    const idToken = await credential.user.getIdToken();
+    await appAuth.googleLogin(idToken);
+    router.push("/dashboard");
+  };
+
+  useEffect(() => {
+    if (checkedGoogleRedirect.current) return;
+    checkedGoogleRedirect.current = true;
+
+    const handleRedirectResult = async () => {
+      try {
+        const credential = await getRedirectResult(firebaseAuth);
+        if (!credential) return;
+        setLoading(true);
+        setError("");
+        await finishGoogleSignIn(credential);
+      } catch (error) {
+        console.error("Google redirect sign in error:", error);
+        setError(error.response?.data?.error || error.message || "Google sign-in failed");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    handleRedirectResult();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -50,11 +80,15 @@ function SignInForm() {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: "select_account" });
       const credential = await signInWithPopup(firebaseAuth, provider);
-      const idToken = await credential.user.getIdToken();
-      await appAuth.googleLogin(idToken);
-      router.push("/dashboard");
+      await finishGoogleSignIn(credential);
     } catch (error) {
       console.error("Google sign in error:", error);
+      if (error.code === "auth/popup-blocked") {
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: "select_account" });
+        await signInWithRedirect(firebaseAuth, provider);
+        return;
+      }
       setError(error.response?.data?.error || error.message || "Google sign-in failed");
     } finally {
       setLoading(false);
