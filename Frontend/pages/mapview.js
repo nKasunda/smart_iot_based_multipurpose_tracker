@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import React from "react";
 import { useRouter } from "next/router";
 import Header from "../components/Header";
+import { API_BASE } from "../lib/config";
 
 // Dynamically import the map component so it never runs on the server
 const MapWithMarker = dynamic(() => import("../components/MapWithMarker"), { ssr: false });
@@ -15,8 +16,6 @@ export default function MapView() {
   const [isTracking, setIsTracking] = useState(false);
   const [trackingStatus, setTrackingStatus] = useState("");
   const [watchId, setWatchId] = useState(null);
-
-  const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
 
   // Start smartphone tracking
   useEffect(() => {

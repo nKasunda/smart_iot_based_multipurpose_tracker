@@ -35,7 +35,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
   const [trackingUrl, setTrackingUrl] = useState("");
   const [phoneUrls, setPhoneUrls] = useState([]);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_BASE || API_BASE || "http://localhost:5000";
+  const API_URL = API_BASE;
   const isAdmin = user?.role === "admin";
   const bearer = token || getToken();
   const authConfig = bearer ? { headers: { Authorization: `Bearer ${bearer}` } } : {};
