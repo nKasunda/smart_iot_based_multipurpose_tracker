@@ -12,6 +12,17 @@ const userRoutes = require("./routes/user.routes");
 const cors = require("cors");
 const app = express();
 
+const isHosted = process.env.RENDER || process.env.NODE_ENV === "production";
+const hasDatabaseConfig =
+  !!process.env.DATABASE_URL ||
+  ["DB_HOST", "DB_NAME", "DB_USER", "DB_PASS"].every((key) => !!process.env[key]);
+
+if (isHosted && !hasDatabaseConfig) {
+  throw new Error(
+    "Database configuration missing. Set DATABASE_URL to your Neon connection string, or set DB_HOST, DB_NAME, DB_USER, and DB_PASS."
+  );
+}
+
 // Running behind ngrok / reverse proxies sends `X-Forwarded-For`.
 // Express must trust the proxy so rate limiting and `req.ip` work correctly.
 app.set("trust proxy", 1);
