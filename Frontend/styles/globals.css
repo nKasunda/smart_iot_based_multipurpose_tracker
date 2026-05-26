@@ -1111,6 +1111,64 @@ select {
   transition: none;
 }
 
+.tracker-live-route-main {
+  animation: trackerLiveRouteFlow 1.2s linear infinite;
+  filter:
+    drop-shadow(0 0 5px rgba(37, 99, 235, 0.65))
+    drop-shadow(0 0 14px rgba(56, 189, 248, 0.45));
+}
+
+.tracker-live-route-glow {
+  filter: blur(1px);
+}
+
+.live-route-direction-wrapper {
+  background: transparent !important;
+  border: 0 !important;
+}
+
+.live-route-direction {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  transform: rotate(var(--route-bearing, 0deg));
+  filter:
+    drop-shadow(0 8px 14px rgba(15, 23, 42, 0.28))
+    drop-shadow(0 0 12px rgba(37, 99, 235, 0.5));
+}
+
+.live-route-direction span {
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-bottom: 18px solid #2563eb;
+  transform: translateY(-2px);
+  position: relative;
+}
+
+.live-route-direction span::after {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: 5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #ffffff;
+  opacity: 0.92;
+}
+
+@keyframes trackerLiveRouteFlow {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
 .leaflet-tooltip.device-name-tooltip,
 .leaflet-tooltip.path-coordinate-tooltip {
   background: rgba(255, 255, 255, 0.96);

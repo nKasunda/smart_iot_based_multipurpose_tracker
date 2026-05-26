@@ -12,6 +12,7 @@ export default function Overview({
   alerts,
   selectedDeviceId,
   setSelectedDeviceId,
+  selectedPath,
 }) {
   const { dateFormat, clockFormat } = useSettings();
   const activeNow = useMemo(() => {
@@ -169,7 +170,7 @@ export default function Overview({
             latestByDevice={latestByDevice || {}}
             selectedDeviceId={selectedDeviceId}
             onSelectDeviceId={setSelectedDeviceId}
-            selectedPath={[]}
+            selectedPath={selectedPath || []}
           />
         </div>
       </div>

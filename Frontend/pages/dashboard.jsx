@@ -29,6 +29,35 @@ const sectionComponents = {
 };
 
 const DASHBOARD_SECTION_KEY = "dashboard.activeSection";
+const LIVE_PATH_TTL_MS = 2 * 60 * 1000;
+const LIVE_PATH_MAX_POINTS = 120;
+
+function pointFromLocation(location) {
+  const lat = Number(location?.lat);
+  const lng = Number(location?.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+  const timestamp = location?.timestamp || location?.lastSeen || location?.last_seen || new Date().toISOString();
+  const time = new Date(timestamp).getTime();
+  if (!Number.isFinite(time)) return null;
+
+  return {
+    lat,
+    lng,
+    timestamp,
+    time,
+    speed: location?.speed ?? null,
+  };
+}
+
+function isLivePoint(point, now = Date.now()) {
+  return !!point && now - point.time < LIVE_PATH_TTL_MS;
+}
+
+function sameCoordinate(a, b) {
+  if (!a || !b) return false;
+  return Math.abs(a.lat - b.lat) < 0.000001 && Math.abs(a.lng - b.lng) < 0.000001;
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -52,6 +81,7 @@ export default function DashboardPage() {
   const [alerts,           setAlerts]           = useState(null);
   const [socketConnected,  setSocketConnected]  = useState(false);
   const [selectedDeviceId, setSelectedDeviceId] = useState("");
+  const [livePaths,        setLivePaths]        = useState({});
 
   const socketRef = useRef(null);
   const visibleDeviceIdsRef = useRef(new Set());
@@ -91,9 +121,48 @@ export default function DashboardPage() {
     return map;
   }, [filteredLatest]);
 
+  const selectedLivePath = useMemo(() => {
+    const selectedLatest = selectedDeviceId ? latestByDevice[selectedDeviceId] : null;
+    const point = pointFromLocation(selectedLatest);
+    if (!isLivePoint(point)) return [];
+    return livePaths[selectedDeviceId] || [];
+  }, [latestByDevice, livePaths, selectedDeviceId]);
+
   useEffect(() => {
     visibleDeviceIdsRef.current = new Set((filteredDevices || []).map((d) => d.device_uid));
   }, [filteredDevices]);
+
+  useEffect(() => {
+    const rows = Array.isArray(filteredLatest) ? filteredLatest : [];
+    const now = Date.now();
+
+    setLivePaths((prev) => {
+      const next = {};
+      const activeIds = new Set();
+
+      rows.forEach((location) => {
+        const deviceId = location?.device_id || location?.device_uid || location?.trackerId;
+        const point = pointFromLocation(location);
+        if (!deviceId || !isLivePoint(point, now)) return;
+
+        activeIds.add(deviceId);
+        const existing = (prev[deviceId] || []).filter((p) => isLivePoint(p, now));
+        const last = existing[existing.length - 1];
+        const path = sameCoordinate(last, point)
+          ? [...existing.slice(0, -1), { ...last, ...point }]
+          : [...existing, point];
+
+        next[deviceId] = path.slice(-LIVE_PATH_MAX_POINTS);
+      });
+
+      Object.keys(prev).forEach((deviceId) => {
+        if (!activeIds.has(deviceId)) return;
+        if (!next[deviceId]?.length) delete next[deviceId];
+      });
+
+      return next;
+    });
+  }, [filteredLatest]);
 
   const activeNow = useMemo(() => {
     const now = Date.now();
@@ -268,6 +337,7 @@ export default function DashboardPage() {
             alerts={alerts}
             selectedDeviceId={selectedDeviceId}
             setSelectedDeviceId={setSelectedDeviceId}
+            selectedPath={selectedLivePath}
             onRefresh={refreshAll}
             token={auth.token}
           />

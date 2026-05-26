@@ -119,6 +119,18 @@ function getSignalInfo(signalStrength) {
   return { value, label: String(value), quality: "Bad", color: "#dc2626" };
 }
 
+function getBearing(from, to) {
+  if (!from || !to) return 0;
+  const lat1 = (Number(from.lat) * Math.PI) / 180;
+  const lat2 = (Number(to.lat) * Math.PI) / 180;
+  const deltaLng = ((Number(to.lng) - Number(from.lng)) * Math.PI) / 180;
+  const y = Math.sin(deltaLng) * Math.cos(lat2);
+  const x =
+    Math.cos(lat1) * Math.sin(lat2) -
+    Math.sin(lat1) * Math.cos(lat2) * Math.cos(deltaLng);
+  return (Math.atan2(y, x) * 180) / Math.PI;
+}
+
 function makeDeviceMarkerIcon({ color, online, selected }) {
   const classes = [
     "device-marker-outer",
@@ -138,6 +150,15 @@ function makeDeviceMarkerIcon({ color, online, selected }) {
   });
 }
 
+function makeRouteDirectionIcon(bearing) {
+  return L.divIcon({
+    className: "live-route-direction-wrapper",
+    html: `<div class="live-route-direction" style="--route-bearing: ${bearing}deg;"><span></span></div>`,
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
+  });
+}
+
 export default function TrackerLeafletMap({
   latestByDevice,
   selectedDeviceId,
@@ -152,6 +173,18 @@ export default function TrackerLeafletMap({
   );
   const selected = selectedDeviceId ? latestByDevice?.[selectedDeviceId] : null;
   const [pathHoverLatLng, setPathHoverLatLng] = useState(null);
+  const livePath = useMemo(
+    () =>
+      Array.isArray(selectedPath)
+        ? selectedPath.filter((p) => Number.isFinite(p?.lat) && Number.isFinite(p?.lng))
+        : [],
+    [selectedPath]
+  );
+  const livePathPositions = useMemo(() => livePath.map((p) => [p.lat, p.lng]), [livePath]);
+  const livePathBearing = useMemo(() => {
+    if (livePath.length < 2) return 0;
+    return getBearing(livePath[livePath.length - 2], livePath[livePath.length - 1]);
+  }, [livePath]);
 
   const activeLayer = useMemo(
     () => MAP_LAYERS.find((layer) => layer.key === mapStyle) ?? MAP_LAYERS[0],
@@ -193,27 +226,59 @@ export default function TrackerLeafletMap({
       <MapStyleControl mapStyle={mapStyle} onChange={(nextStyle) => save({ mapStyle: nextStyle })} />
       <FitAllControl entries={entries} />
 
-      {Array.isArray(selectedPath) && selectedPath.length >= 2 ? (
-        <Polyline
-          positions={selectedPath.map((p) => [p.lat, p.lng])}
-          interactive
-          pathOptions={{
-            color: "#2563eb",
-            weight: 4,
-            opacity: 0.85,
-            dashArray: "5, 5",
-          }}
-          eventHandlers={{
-            mousemove: (e) => setPathHoverLatLng(e?.latlng || null),
-            mouseout: () => setPathHoverLatLng(null),
-          }}
-        >
-          <Tooltip sticky direction="top" opacity={0.95} className="path-coordinate-tooltip">
-            {pathHoverLatLng
-              ? `lat: ${pathHoverLatLng.lat.toFixed(6)}, lng: ${pathHoverLatLng.lng.toFixed(6)}`
-              : "Move along path"}
-          </Tooltip>
-        </Polyline>
+      {livePathPositions.length >= 2 ? (
+        <>
+          <Polyline
+            positions={livePathPositions}
+            pathOptions={{
+              color: "#0f172a",
+              weight: 12,
+              opacity: 0.18,
+              lineCap: "round",
+              lineJoin: "round",
+              className: "tracker-live-route-glow",
+            }}
+          />
+          <Polyline
+            positions={livePathPositions}
+            pathOptions={{
+              color: "#38bdf8",
+              weight: 7,
+              opacity: 0.34,
+              lineCap: "round",
+              lineJoin: "round",
+            }}
+          />
+          <Polyline
+            positions={livePathPositions}
+            interactive
+            pathOptions={{
+              color: "#2563eb",
+              weight: 4,
+              opacity: 0.95,
+              dashArray: "10 14",
+              lineCap: "round",
+              lineJoin: "round",
+              className: "tracker-live-route-main",
+            }}
+            eventHandlers={{
+              mousemove: (e) => setPathHoverLatLng(e?.latlng || null),
+              mouseout: () => setPathHoverLatLng(null),
+            }}
+          >
+            <Tooltip sticky direction="top" opacity={0.95} className="path-coordinate-tooltip">
+              {pathHoverLatLng
+                ? `lat: ${pathHoverLatLng.lat.toFixed(6)}, lng: ${pathHoverLatLng.lng.toFixed(6)}`
+                : "Live movement path"}
+            </Tooltip>
+          </Polyline>
+          <Marker
+            position={livePathPositions[livePathPositions.length - 1]}
+            icon={makeRouteDirectionIcon(livePathBearing)}
+            interactive={false}
+            zIndexOffset={900}
+          />
+        </>
       ) : null}
 
       {entries.map(([deviceId, loc], idx) => {
