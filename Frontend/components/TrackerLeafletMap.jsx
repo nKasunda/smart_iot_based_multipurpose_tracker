@@ -164,6 +164,7 @@ export default function TrackerLeafletMap({
   selectedDeviceId,
   onSelectDeviceId,
   selectedPath,
+  livePaths,
 }) {
   const { dateFormat, clockFormat, mapStyle, save } = useSettings();
   const allEntries = useMemo(() => Object.entries(latestByDevice || {}), [latestByDevice]);
@@ -185,6 +186,26 @@ export default function TrackerLeafletMap({
     if (livePath.length < 2) return 0;
     return getBearing(livePath[livePath.length - 2], livePath[livePath.length - 1]);
   }, [livePath]);
+
+  // All device paths for real-time visualization
+  const allDevicePaths = useMemo(() => {
+    if (!livePaths) return [];
+    return Object.entries(livePaths || {})
+      .map(([deviceId, path]) => {
+        if (!Array.isArray(path) || path.length < 2) return null;
+        const isSelected = deviceId === selectedDeviceId;
+        const deviceLocation = latestByDevice?.[deviceId];
+        const isOnline = isOnlineFromTimestamp(deviceLocation?.timestamp || deviceLocation?.lastSeen || deviceLocation?.last_seen);
+
+        if (!isOnline) return null;
+
+        const positions = path.filter((p) => Number.isFinite(p?.lat) && Number.isFinite(p?.lng)).map((p) => [p.lat, p.lng]);
+        if (positions.length < 2) return null;
+
+        return { deviceId, positions, isSelected, isOnline };
+      })
+      .filter(Boolean);
+  }, [livePaths, latestByDevice, selectedDeviceId]);
 
   const activeLayer = useMemo(
     () => MAP_LAYERS.find((layer) => layer.key === mapStyle) ?? MAP_LAYERS[0],
@@ -226,7 +247,95 @@ export default function TrackerLeafletMap({
       <MapStyleControl mapStyle={mapStyle} onChange={(nextStyle) => save({ mapStyle: nextStyle })} />
       <FitAllControl entries={entries} />
 
-      {livePathPositions.length >= 2 ? (
+      {/* Render paths for all online devices */}
+      {allDevicePaths.map(({ deviceId, positions, isSelected, isOnline }) => {
+        // Use more prominent colors for selected device
+        if (isSelected) {
+          return (
+            <React.Fragment key={`path-${deviceId}`}>
+              <Polyline
+                positions={positions}
+                pathOptions={{
+                  color: "#0f172a",
+                  weight: 12,
+                  opacity: 0.18,
+                  lineCap: "round",
+                  lineJoin: "round",
+                  className: "tracker-live-route-glow",
+                }}
+              />
+              <Polyline
+                positions={positions}
+                pathOptions={{
+                  color: "#38bdf8",
+                  weight: 7,
+                  opacity: 0.34,
+                  lineCap: "round",
+                  lineJoin: "round",
+                }}
+              />
+              <Polyline
+                positions={positions}
+                interactive
+                pathOptions={{
+                  color: "#2563eb",
+                  weight: 4,
+                  opacity: 0.95,
+                  dashArray: "10 14",
+                  lineCap: "round",
+                  lineJoin: "round",
+                  className: "tracker-live-route-main",
+                }}
+                eventHandlers={{
+                  mousemove: (e) => setPathHoverLatLng(e?.latlng || null),
+                  mouseout: () => setPathHoverLatLng(null),
+                }}
+              >
+                <Tooltip sticky direction="top" opacity={0.95} className="path-coordinate-tooltip">
+                  {pathHoverLatLng
+                    ? `lat: ${pathHoverLatLng.lat.toFixed(6)}, lng: ${pathHoverLatLng.lng.toFixed(6)}`
+                    : "Live movement path"}
+                </Tooltip>
+              </Polyline>
+              <Marker
+                position={positions[positions.length - 1]}
+                icon={makeRouteDirectionIcon(getBearing(positions[positions.length - 2], positions[positions.length - 1]))}
+                interactive={false}
+                zIndexOffset={900}
+              />
+            </React.Fragment>
+          );
+        }
+
+        // Lighter, simpler styling for non-selected device paths
+        return (
+          <React.Fragment key={`path-${deviceId}`}>
+            <Polyline
+              positions={positions}
+              pathOptions={{
+                color: "#94a3b8",
+                weight: 3,
+                opacity: 0.4,
+                lineCap: "round",
+                lineJoin: "round",
+              }}
+            />
+            <Polyline
+              positions={positions}
+              pathOptions={{
+                color: "#cbd5e1",
+                weight: 1.5,
+                opacity: 0.6,
+                lineCap: "round",
+                lineJoin: "round",
+              }}
+            />
+          </React.Fragment>
+        );
+      })}
+
+      {/* Keep legacy path rendering for backward compatibility */}
+      {livePathPositions.length >= 2 && !livePaths ? (
         <>
           <Polyline
             positions={livePathPositions}

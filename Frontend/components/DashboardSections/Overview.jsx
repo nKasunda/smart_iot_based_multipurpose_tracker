@@ -13,6 +13,7 @@ export default function Overview({
   selectedDeviceId,
   setSelectedDeviceId,
   selectedPath,
+  livePaths,
 }) {
   const { dateFormat, clockFormat } = useSettings();
   const activeNow = useMemo(() => {
@@ -171,6 +172,7 @@ export default function Overview({
             selectedDeviceId={selectedDeviceId}
             onSelectDeviceId={setSelectedDeviceId}
             selectedPath={selectedPath || []}
+            livePaths={livePaths || {}}
           />
         </div>
       </div>

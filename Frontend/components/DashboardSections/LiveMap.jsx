@@ -3,7 +3,7 @@ import dynamic from "next/dynamic";
 
 const TrackerLeafletMap = dynamic(() => import("../TrackerLeafletMap"), { ssr: false });
 
-export default function LiveMap({ latestByDevice, selectedDeviceId, setSelectedDeviceId, selectedPath }) {
+export default function LiveMap({ latestByDevice, selectedDeviceId, setSelectedDeviceId, selectedPath, livePaths }) {
   const deviceIds = Object.keys(latestByDevice || {}).sort();
 
   return (
@@ -74,6 +74,7 @@ export default function LiveMap({ latestByDevice, selectedDeviceId, setSelectedD
           selectedDeviceId={selectedDeviceId}
           onSelectDeviceId={setSelectedDeviceId}
           selectedPath={selectedPath || []}
+          livePaths={livePaths || {}}
         />
       </div>
     </div>

@@ -1453,14 +1453,24 @@ select {
 .dashboard-app-shell {
   background: var(--app-bg);
   color: var(--text);
+  height: 100svh !important;
+  overflow: hidden;
 }
 
 .dashboard-workspace {
   min-width: 0;
+  height: 100svh !important;
 }
 
 .dashboard-main-scroll {
   min-width: 0;
+  width: 100%;
+  overscroll-behavior: contain;
+}
+
+.side-menu {
+  height: 100svh !important;
+  max-height: 100svh !important;
 }
 
 :root[data-theme="dark"] .dashboard-main-scroll [style*="background: #ffffff"],
@@ -1572,12 +1582,10 @@ select {
   .dashboard-main-scroll [style*="grid-template-columns: 1.2fr 1.2fr 0.9fr"],
   .dashboard-main-scroll [style*="gridTemplateColumns: 1.2fr 1.2fr 0.9fr"],
   .dashboard-main-scroll [style*="grid-template-columns: 1.3fr 1.2fr 0.8fr"],
-  .dashboard-main-scroll [style*="gridTemplateColumns: 1.3fr 1.2fr 0.8fr"] {
+  .dashboard-main-scroll [style*="gridTemplateColumns: 1.3fr 1.2fr 0.8fr"],
+  .dashboard-main-scroll [style*="grid-template-columns: 1.4fr 1.2fr 0.8fr"],
+  .dashboard-main-scroll [style*="gridTemplateColumns: 1.4fr 1.2fr 0.8fr"] {
     min-width: 860px;
-  }
-
-  .dashboard-main-scroll [style*="grid-template-columns"] {
-    min-width: 0;
   }
 
   .dashboard-main-scroll [style*="grid-template-columns: 1.2fr 1.2fr"],
@@ -1593,11 +1601,11 @@ select {
   }
 
   .dashboard-main-scroll [style*="height: 540px"] {
-    height: min(62dvh, 460px) !important;
+    height: clamp(340px, 58svh, 460px) !important;
   }
 
   .dashboard-main-scroll [style*="height: 72vh"] {
-    height: 62dvh !important;
+    height: clamp(360px, 62svh, 520px) !important;
   }
 }
 

@@ -338,6 +338,7 @@ export default function DashboardPage() {
             selectedDeviceId={selectedDeviceId}
             setSelectedDeviceId={setSelectedDeviceId}
             selectedPath={selectedLivePath}
+            livePaths={livePaths}
             onRefresh={refreshAll}
             token={auth.token}
           />
