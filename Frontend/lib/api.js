@@ -31,8 +31,9 @@ export async function register(name, email, password) {
   return res.data;
 }
 
-export async function verifyEmail(token) {
-  const res = await api.post("/api/auth/verify-email", { token });
+export async function verifyEmail(payload) {
+  const body = typeof payload === "string" ? { token: payload } : payload;
+  const res = await api.post("/api/auth/verify-email", body);
   return res.data;
 }
 
@@ -43,6 +44,11 @@ export async function resendVerification(email) {
 
 export async function forgotPassword(email) {
   const res = await api.post("/api/auth/forgot-password", { email });
+  return res.data;
+}
+
+export async function resetPassword(token, password) {
+  const res = await api.post("/api/auth/reset-password", { token, password });
   return res.data;
 }
 

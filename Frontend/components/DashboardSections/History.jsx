@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { FiTrash2 } from "react-icons/fi";
+import { FiCalendar, FiTrash2 } from "react-icons/fi";
 import { getHistory } from "../../lib/api";
 import { friendlyError } from "../../lib/errors";
 import { useSettings } from "../../context/SettingsContext";
@@ -50,6 +50,32 @@ function isoFromCalendarDate(dateText, endOfDay = false) {
   }
   if (Number.isNaN(date.getTime())) return "";
   return date.toISOString();
+}
+
+function DateField({ id, label, value, onChange, dateFormat }) {
+  const parsed = parseCalendarDate(value);
+  const displayValue = parsed ? formatDateOnly(parsed, dateFormat) : dateFormat;
+
+  return (
+    <div>
+      <label htmlFor={id} style={lbl}>
+        {label}
+        <span style={fmtBadge}>{dateFormat}</span>
+      </label>
+      <div className={`history-date-field${value ? " has-value" : ""}`}>
+        <span className="history-date-field__value">{displayValue}</span>
+        <FiCalendar className="history-date-field__icon" size={16} aria-hidden="true" />
+        <input
+          id={id}
+          type="date"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="history-date-field__input"
+          aria-label={`${label}, shown as ${dateFormat}`}
+        />
+      </div>
+    </div>
+  );
 }
 
 export default function History({ devices, latestByDevice, selectedDeviceId, setSelectedDeviceId }) {
@@ -136,43 +162,21 @@ export default function History({ devices, latestByDevice, selectedDeviceId, set
             </select>
           </div>
 
-          {/* From date */}
-          <div>
-            <label style={lbl}>
-              From Date
-              <span style={fmtBadge}>{dateFormat}</span>
-            </label>
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              style={input}
-            />
-            {parseCalendarDate(fromDate) && (
-              <p style={preview}>
-                {formatDateOnly(parseCalendarDate(fromDate), dateFormat)}
-              </p>
-            )}
-          </div>
+          <DateField
+            id="history-from-date"
+            label="From Date"
+            value={fromDate}
+            onChange={setFromDate}
+            dateFormat={dateFormat}
+          />
 
-          {/* To date */}
-          <div>
-            <label style={lbl}>
-              To Date
-              <span style={fmtBadge}>{dateFormat}</span>
-            </label>
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              style={input}
-            />
-            {parseCalendarDate(toDate) && (
-              <p style={preview}>
-                {formatDateOnly(parseCalendarDate(toDate), dateFormat)}
-              </p>
-            )}
-          </div>
+          <DateField
+            id="history-to-date"
+            label="To Date"
+            value={toDate}
+            onChange={setToDate}
+            dateFormat={dateFormat}
+          />
 
           {/* Load button */}
           <button
@@ -257,9 +261,4 @@ const fmtBadge = {
   fontSize: 9, fontWeight: 700, padding: "1px 5px",
   borderRadius: 4, background: "#eff6ff",
   color: "#2563eb", letterSpacing: "0.04em",
-};
-
-const preview = {
-  margin: "3px 0 0", fontSize: 10,
-  color: "#2563eb", fontWeight: 500,
 };

@@ -3,7 +3,7 @@ import { GoogleMap, LoadScript, Marker, InfoWindow, Polyline } from "@react-goog
 import { api } from "../../lib/api";
 import { formatDateTime, useSettings } from "../../context/SettingsContext";
 
-const containerStyle = { width: "100%", height: "865px" };
+const containerStyle = { width: "100%", height: "clamp(340px, 70svh, 865px)" };
 const trackerColors = ["#2563eb", "#16a34a", "#dc2626", "#d97706", "#9333ea", "#0ea5e9"];
 const animationSteps = 14;
 const animationIntervalMs = 40;

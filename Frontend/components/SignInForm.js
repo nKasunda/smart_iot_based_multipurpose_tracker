@@ -21,6 +21,7 @@ function SignInForm() {
   const [focusedInput, setFocusedInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [email, setEmail] = useState("");
   const router = useRouter();
   const appAuth = useAuth();
   const checkedGoogleRedirect = useRef(false);
@@ -138,9 +139,21 @@ function SignInForm() {
             textAlign: "left",
           }}
         >
-          {error}
-        </div>
-      ) : null}
+            {error}
+            {String(error).toLowerCase().includes("verify") ? (
+              <div style={{ marginTop: 8, lineHeight: 1.5 }}>
+                Open the verification email sent to your inbox, or{" "}
+                <Link
+                  href={`/verify-email?email=${encodeURIComponent(email || "")}`}
+                  style={{ color: "#000080", fontWeight: 800 }}
+                >
+                  request a new verification link
+                </Link>
+                .
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
       {/* Email Field */}
       <div style={{ width: "100%", marginBottom: "clamp(16px, 3vw, 25px)" }}>
@@ -171,8 +184,11 @@ function SignInForm() {
           <input
             id="email"
             name="email"
+            className="auth-input"
             type="email"
             placeholder="Enter your email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             style={{
               width: "100%",
               padding: "12px 10px 12px 40px",
@@ -222,6 +238,7 @@ function SignInForm() {
           <input
             id="password"
             name="password"
+            className="auth-input"
             type={showPassword ? "text" : "password"}
             placeholder="Enter your password"
             style={{

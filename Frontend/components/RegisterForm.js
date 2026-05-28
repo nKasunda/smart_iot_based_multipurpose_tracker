@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { FaUser, FaEnvelope, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { useAuth } from "../context/AuthContext";
 import { friendlyError } from "../lib/errors";
 
@@ -10,16 +11,13 @@ function RegisterForm() {
   const [focusedInput, setFocusedInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [verificationUrl, setVerificationUrl] = useState("");
+  const router = useRouter();
   const auth = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-    setSuccess("");
-    setVerificationUrl("");
     
     const name = e.target.name.value;
     const email = e.target.email.value;
@@ -47,8 +45,13 @@ function RegisterForm() {
 
     try {
       const data = await auth.register(name, email, password);
-      setSuccess(data?.message || "Account created. Verify your email before signing in.");
-      setVerificationUrl(data?.verificationUrl || "");
+      router.push({
+        pathname: "/verify-email",
+        query: {
+          email,
+          sent: data?.emailSent === false ? "0" : "1",
+        },
+      });
     } catch (error) {
       console.error("Register error:", error.message);
       setError(friendlyError(error, "Registration failed. Check your details and try again."));
@@ -64,9 +67,9 @@ function RegisterForm() {
       onSubmit={handleSubmit}
       style={{
         backgroundColor: "white",
-        padding: "40px",
+        padding: "clamp(22px, 6vw, 40px)",
         borderRadius: "15px",
-        width: "400px",
+        width: "min(400px, calc(100vw - 32px))",
         boxShadow: "0 6px 12px rgba(0,0,0,0.5)",
         fontFamily: "'Roboto', sans-serif",
       }}
@@ -102,32 +105,6 @@ function RegisterForm() {
         </div>
       ) : null}
 
-      {success ? (
-        <div
-          style={{
-            marginBottom: "18px",
-            padding: "10px 12px",
-            borderRadius: "10px",
-            background: "rgba(22,163,74,0.1)",
-            border: "1px solid rgba(22,163,74,0.24)",
-            color: "#14532d",
-            fontSize: "13px",
-            fontWeight: 700,
-            textAlign: "left",
-            lineHeight: 1.5,
-          }}
-        >
-          {success}
-          {verificationUrl ? (
-            <div style={{ marginTop: 8 }}>
-              <Link href={verificationUrl} style={{ color: "#000080", fontWeight: 800 }}>
-                Open verification link
-              </Link>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
       {/* Name Field */}
       <div style={{ width: "100%", marginBottom: "25px" }}>
         <label
@@ -157,6 +134,7 @@ function RegisterForm() {
           <input
             id="name"
             name="name"
+            className="auth-input"
             type="text"
             placeholder="Enter your full name"
             style={{
@@ -208,6 +186,7 @@ function RegisterForm() {
           <input
             id="email"
             name="email"
+            className="auth-input"
             type="email"
             placeholder="Enter your email"
             style={{
@@ -259,6 +238,7 @@ function RegisterForm() {
           <input
             id="password"
             name="password"
+            className="auth-input"
             type={showPassword ? "text" : "password"}
             placeholder="Enter your password (min 6 characters)"
             style={{
@@ -323,6 +303,7 @@ function RegisterForm() {
           <input
             id="confirmPassword"
             name="confirmPassword"
+            className="auth-input"
             type={showConfirmPassword ? "text" : "password"}
             placeholder="Confirm your password"
             style={{

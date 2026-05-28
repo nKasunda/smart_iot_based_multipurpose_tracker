@@ -22,7 +22,7 @@ export default function ForgotPasswordPage() {
 
     try {
       const res = await forgotPassword(email);
-      setMessage(res?.message || "If an account exists for that email, reset instructions will be sent.");
+      setMessage(res?.message || "If an account exists for that email, reset instructions have been sent. Check your inbox and spam folder.");
     } catch (err) {
       setError(friendlyError(err, "Unable to process reset request right now."));
     } finally {
@@ -159,6 +159,7 @@ export default function ForgotPasswordPage() {
             <input
               id="reset-email"
               name="email"
+              className="auth-input"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}

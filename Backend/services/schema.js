@@ -17,6 +17,8 @@ async function ensureSchema(sequelize) {
         ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "emailVerified" BOOLEAN DEFAULT false;
         ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "verificationToken" VARCHAR;
         ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "verificationExpiresAt" TIMESTAMPTZ;
+        ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "passwordResetToken" VARCHAR;
+        ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "passwordResetExpiresAt" TIMESTAMPTZ;
         ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "authProvider" VARCHAR DEFAULT 'password';
         ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "googleSub" VARCHAR;
 

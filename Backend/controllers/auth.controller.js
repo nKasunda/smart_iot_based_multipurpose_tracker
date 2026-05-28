@@ -6,6 +6,7 @@ const https = require('https');
 const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
 const { User } = require('../models');
+const { sendPasswordResetEmail, sendVerificationEmail } = require('../services/mail');
 
 let firebaseCertCache = { expiresAt: 0, certs: null };
 
@@ -53,8 +54,68 @@ function makeVerificationToken() {
   return crypto.randomBytes(32).toString('hex');
 }
 
+function makeVerificationCode() {
+  return String(crypto.randomInt(100000, 1000000));
+}
+
 function buildVerificationUrl(req, token) {
   return `${getAppOrigin(req).replace(/\/$/, '')}/verify-email?token=${encodeURIComponent(token)}`;
+}
+
+function buildPasswordResetUrl(req, token) {
+  return `${getAppOrigin(req).replace(/\/$/, '')}/reset-password?token=${encodeURIComponent(token)}`;
+}
+
+async function deliverVerificationEmail(req, user) {
+  const verificationUrl = buildVerificationUrl(req, user.verificationToken);
+  const isCode = /^\d{6}$/.test(String(user.verificationToken || ''));
+  let delivery;
+
+  try {
+    delivery = await sendVerificationEmail({
+      to: user.email,
+      name: user.name,
+      verificationCode: isCode ? user.verificationToken : null,
+      verificationUrl: isCode ? null : verificationUrl,
+    });
+  } catch (err) {
+    console.error('Verification email delivery failed:', err.message);
+    delivery = { sent: false, reason: 'send_failed' };
+  }
+
+  if (!delivery.sent) {
+    console.warn(`Email verification for ${user.email}: ${isCode ? user.verificationToken : verificationUrl}`);
+  }
+
+  return {
+    verificationUrl,
+    emailSent: delivery.sent,
+  };
+}
+
+async function deliverPasswordResetEmail(req, user) {
+  const resetUrl = buildPasswordResetUrl(req, user.passwordResetToken);
+  let delivery;
+
+  try {
+    delivery = await sendPasswordResetEmail({
+      to: user.email,
+      name: user.name,
+      resetUrl,
+    });
+  } catch (err) {
+    console.error('Password reset email delivery failed:', err.message);
+    delivery = { sent: false, reason: 'send_failed' };
+  }
+
+  if (!delivery.sent) {
+    console.warn(`Password reset for ${user.email}: ${resetUrl}`);
+  }
+
+  return {
+    resetUrl,
+    emailSent: delivery.sent,
+  };
 }
 
 async function getFirebaseCerts() {
@@ -139,8 +200,8 @@ exports.register = async (req, res) => {
 
     const passwordHash = await bcrypt.hash(String(password), 10);
     const role = 'user';
-    const verificationToken = makeVerificationToken();
-    const verificationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const verificationToken = makeVerificationCode();
+    const verificationExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
     const user = await User.create({
       name: name || null,
       email,
@@ -152,11 +213,13 @@ exports.register = async (req, res) => {
       authProvider: 'password',
     });
 
-    const verificationUrl = buildVerificationUrl(req, verificationToken);
-    console.log(`Email verification for ${email}: ${verificationUrl}`);
+    const delivery = await deliverVerificationEmail(req, user);
     return res.json({
-      message: 'Account created. Verify your email before signing in.',
-      verificationUrl: process.env.NODE_ENV === 'production' ? undefined : verificationUrl,
+      message: delivery.emailSent
+        ? 'Account created. Enter the verification code sent to your email.'
+        : 'Account created, but email delivery is not configured. Ask the administrator to configure SMTP, then resend verification.',
+      emailSent: delivery.emailSent,
+      email,
       user: publicUser(user)
     });
   } catch (err) {
@@ -277,12 +340,18 @@ exports.googleSignIn = async (req, res) => {
 exports.verifyEmail = async (req, res) => {
   try {
     const token = String(req.body?.token || req.query?.token || '').trim();
-    if (!token) return res.status(400).json({ error: 'Verification token is required' });
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const code = String(req.body?.code || '').replace(/\D/g, '').slice(0, 6);
+    if (!token && (!email || !code)) {
+      return res.status(400).json({ error: 'Enter your email address and the 6-digit verification code.' });
+    }
 
-    const user = await User.findOne({ where: { verificationToken: token } });
-    if (!user) return res.status(400).json({ error: 'Invalid verification token' });
+    const user = token
+      ? await User.findOne({ where: { verificationToken: token } })
+      : await User.findOne({ where: { email, verificationToken: code } });
+    if (!user) return res.status(400).json({ error: 'Invalid verification code' });
     if (user.verificationExpiresAt && new Date(user.verificationExpiresAt).getTime() < Date.now()) {
-      return res.status(400).json({ error: 'Verification token has expired' });
+      return res.status(400).json({ error: 'Verification code has expired. Request a new code and try again.' });
     }
 
     user.emailVerified = true;
@@ -290,7 +359,12 @@ exports.verifyEmail = async (req, res) => {
     user.verificationExpiresAt = null;
     await user.save();
 
-    return res.json({ message: 'Email verified. You can now sign in.' });
+    const authToken = signToken(user);
+    return res.json({
+      message: 'Email verified. Opening your dashboard.',
+      token: authToken,
+      user: publicUser(user),
+    });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -303,18 +377,20 @@ exports.resendVerification = async (req, res) => {
 
     const user = await User.findOne({ where: { email } });
     if (user && !user.emailVerified) {
-      user.verificationToken = makeVerificationToken();
-      user.verificationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      user.verificationToken = makeVerificationCode();
+      user.verificationExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
       await user.save();
-      const verificationUrl = buildVerificationUrl(req, user.verificationToken);
-      console.log(`Email verification for ${email}: ${verificationUrl}`);
+      const delivery = await deliverVerificationEmail(req, user);
       return res.json({
-        message: 'If that email needs verification, a new verification link will be sent.',
-        verificationUrl: process.env.NODE_ENV === 'production' ? undefined : verificationUrl,
+        message: delivery.emailSent
+          ? 'A new verification code has been sent. Check your inbox and spam folder.'
+          : 'Verification was renewed, but email delivery is not configured. Ask the administrator to configure SMTP.',
+        emailSent: delivery.emailSent,
+        email,
       });
     }
 
-    return res.json({ message: 'If that email needs verification, a new verification link will be sent.' });
+    return res.json({ message: 'If that email needs verification, a new verification code will be sent.' });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -329,12 +405,50 @@ exports.forgotPassword = async (req, res) => {
 
     const user = await User.findOne({ where: { email } });
     if (user) {
-      console.log(`Password reset requested for ${email}. Configure email delivery to send reset links.`);
+      user.passwordResetToken = makeVerificationToken();
+      user.passwordResetExpiresAt = new Date(Date.now() + 60 * 60 * 1000);
+      await user.save();
+      const delivery = await deliverPasswordResetEmail(req, user);
+
+      return res.json({
+        message: delivery.emailSent
+          ? "If an account exists for that email, password reset instructions have been sent. Check your inbox and spam folder."
+          : "Password reset was requested, but email delivery is not configured. Ask the administrator to configure SMTP.",
+        emailSent: delivery.emailSent,
+        resetUrl: process.env.NODE_ENV === "production" ? undefined : delivery.resetUrl,
+      });
     }
 
     return res.json({
       message: "If an account exists for that email, reset instructions will be sent.",
     });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const token = String(req.body?.token || req.query?.token || '').trim();
+    const password = String(req.body?.password || '');
+
+    if (!token) return res.status(400).json({ error: 'Password reset token is required' });
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Use a password with at least 8 characters.' });
+    }
+
+    const user = await User.scope('withPassword').findOne({ where: { passwordResetToken: token } });
+    if (!user) return res.status(400).json({ error: 'Invalid password reset token' });
+    if (user.passwordResetExpiresAt && new Date(user.passwordResetExpiresAt).getTime() < Date.now()) {
+      return res.status(400).json({ error: 'Password reset link has expired. Request a new reset email.' });
+    }
+
+    user.password = await bcrypt.hash(password, 10);
+    user.passwordResetToken = null;
+    user.passwordResetExpiresAt = null;
+    await user.save();
+
+    return res.json({ message: 'Password reset. You can now sign in with your new password.' });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

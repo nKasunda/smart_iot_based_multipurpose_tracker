@@ -9,6 +9,7 @@ router.post('/register-admin', authController.registerAdmin);
 router.post('/login', authController.login);
 router.post('/google', authController.googleSignIn);
 router.post('/forgot-password', authController.forgotPassword);
+router.post('/reset-password', authController.resetPassword);
 router.post('/verify-email', authController.verifyEmail);
 router.post('/resend-verification', authController.resendVerification);
 router.get('/me', authenticate, authController.me);
