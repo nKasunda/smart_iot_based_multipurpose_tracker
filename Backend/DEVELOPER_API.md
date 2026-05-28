@@ -2,63 +2,75 @@
 
 This guide explains how a developer can read tracker data from TrackA and integrate it into another system.
 
-The Developer API is read-only. It supports:
+The Developer API is read-only. It can be used to get:
 
-- Latest tracker location
-- Historical tracker movement
+- The latest location of one tracker
+- Historical movement for one tracker
 - Live location updates through Socket.IO
 
-It does not allow developers to create users, register trackers, claim trackers, or send device telemetry into TrackA.
+It does not let developers register trackers, claim trackers, manage users, or send tracker telemetry into TrackA.
 
 ## 1. What Does It Do?
 
-The API gives another platform access to one tracker device assigned in TrackA.
+The API gives an external system controlled access to one tracker device.
 
-A developer can use it to:
+Typical uses:
 
-- Show the tracker on another map.
-- Display battery and signal status.
-- Build movement history or route views.
-- Receive real-time location updates.
+- Show a tracker on another platform's map
+- Display current battery and signal values
+- Build a route or movement history view
+- Listen for real-time `location:update` events
 
 Each API key is scoped to one tracker only.
 
-## 2. How Do I Authenticate?
+## 2. Where Do I Get The API Details?
 
-Generate the API key from the TrackA dashboard:
+In TrackA:
 
-1. Sign in to TrackA.
+1. Sign in.
 2. Open `Devices`.
 3. Find the tracker.
 4. Click `API`.
-5. Copy the API key and endpoint URLs.
+5. Copy the API key and endpoint URLs shown in the panel.
 
-Send the key as a Bearer token:
+The API panel gives you:
+
+- `device_id`
+- `auth.apiKey`
+- `endpoints.latest.url`
+- `endpoints.history.url`
+- Socket.IO connection details
+
+## 3. How Do I Authenticate?
+
+Send the copied API key as a Bearer token.
 
 ```text
 Authorization: Bearer <developer-api-key>
 ```
 
-Important:
+Important rules:
 
-- API keys are issued by TrackA.
-- Developers must not create their own tokens.
-- The key expires after 30 days.
-- The key works only for the tracker shown in the API panel.
+- API keys are issued by TrackA only.
+- Developers must not generate their own tokens.
+- API keys expire after 30 days.
+- An API key only works for the `device_id` shown in the API panel.
 
-## 3. What Endpoints Exist?
+## 4. What Endpoints Exist?
 
 Replace:
 
-- `<base-url>` with your TrackA backend URL.
-- `<device_id>` with the tracker device ID.
-- `<developer-api-key>` with the copied API key.
+- `<base-url>` with the TrackA backend URL
+- `<device_id>` with the tracker device ID
+- `<developer-api-key>` with the copied API key
 
 ### Latest Location
 
 ```text
 GET <base-url>/api/v1/devices/<device_id>/latest
 ```
+
+Returns the most recent known location and status for the tracker.
 
 ### Location History
 
@@ -80,39 +92,40 @@ Example:
 GET <base-url>/api/v1/devices/<device_id>/history?from=2026-05-28T00:00:00.000Z&to=2026-05-28T23:59:59.999Z&limit=100
 ```
 
-`limit` is capped at `5000`.
+`limit` is optional and capped at `5000`.
 
 ### Live Updates
 
-Socket.IO URL:
+Socket.IO server:
 
 ```text
 <base-url>
 ```
 
-Event name:
+Event:
 
 ```text
 location:update
 ```
 
-## 4. What Do I Send?
+## 5. What Do I Send?
 
-For REST requests, send:
+For REST endpoints, send:
 
-- A `GET` request.
-- The endpoint URL.
-- The `Authorization` header.
+- Method: `GET`
+- Header: `Authorization: Bearer <developer-api-key>`
+- Body: none
 
-Example header:
+Example:
 
-```text
-Authorization: Bearer <developer-api-key>
+```bash
+curl -H "Authorization: Bearer <developer-api-key>" \
+  "<base-url>/api/v1/devices/<device_id>/latest"
 ```
 
-Do not send a request body. The Developer API endpoints are GET-only.
+Do not send POST bodies to the Developer API. It is GET-only.
 
-## 5. What Do I Get Back?
+## 6. What Do I Get Back?
 
 ### Latest Location Response
 
@@ -131,6 +144,8 @@ Do not send a request body. The Developer API endpoints are GET-only.
   "lastSeen": "2026-05-28T10:00:00.000Z"
 }
 ```
+
+If the tracker has not reported a location yet, location fields may be `null`.
 
 ### History Response
 
@@ -156,7 +171,7 @@ Do not send a request body. The Developer API endpoints are GET-only.
 }
 ```
 
-### Live Update Response
+### Live Update Message
 
 ```json
 {
@@ -174,7 +189,7 @@ Do not send a request body. The Developer API endpoints are GET-only.
 }
 ```
 
-If the socket reconnects, TrackA may replay the latest known location with:
+When a socket reconnects, TrackA may replay the latest known location:
 
 ```json
 {
@@ -182,9 +197,9 @@ If the socket reconnects, TrackA may replay the latest known location with:
 }
 ```
 
-## 6. What Can Go Wrong?
+## 7. What Can Go Wrong?
 
-Errors use this format:
+Errors use this standard format:
 
 ```json
 {
@@ -199,8 +214,9 @@ Common errors:
 | Status | Error | Meaning |
 | --- | --- | --- |
 | `401` | `UNAUTHORIZED` | API key is missing, invalid, or expired. |
-| `403` | `FORBIDDEN` | API key cannot access this tracker. |
+| `403` | `FORBIDDEN` | API key is not allowed to access this API. |
 | `403` | `DEVICE_SCOPE_MISMATCH` | API key belongs to a different tracker. |
+| `403` | `INSUFFICIENT_SCOPE` | API key does not include the required read scope. |
 | `404` | `NOT_FOUND` | Tracker was not found. |
 | `429` | `RATE_LIMITED` | Too many requests were made too quickly. |
 | `500` | `SERVER_ERROR` | Server could not complete the request. |
@@ -215,7 +231,7 @@ Example:
 }
 ```
 
-## 7. How Do I Test It?
+## 8. How Do I Test It?
 
 ### Test Latest Location With Curl
 
@@ -236,6 +252,22 @@ curl -H "Authorization: Bearer <developer-api-key>" \
 ```bash
 curl -H "Authorization: Bearer <developer-api-key>" \
   "<base-url>/api/v1/devices/<device_id>/history?from=2026-05-28T00:00:00.000Z&to=2026-05-28T23:59:59.999Z&limit=100"
+```
+
+### Test Missing API Key
+
+```bash
+curl "<base-url>/api/v1/devices/<device_id>/latest"
+```
+
+Expected result:
+
+```json
+{
+  "error": "UNAUTHORIZED",
+  "message": "Missing developer API key.",
+  "status": 401
+}
 ```
 
 ### Test With Postman
@@ -300,12 +332,13 @@ Run:
 node test-socket.js
 ```
 
-## 8. Quick Checklist
+## 9. Quick Checklist
 
 Before testing, confirm:
 
 - The tracker is assigned to a user.
-- The API panel generated an API key.
-- The key is less than 30 days old.
-- The URL `device_id` matches the API panel tracker.
+- The dashboard API panel generated an API key.
+- The API key is less than 30 days old.
+- The URL `device_id` matches the tracker shown in the API panel.
 - The request includes `Authorization: Bearer <developer-api-key>`.
+- You are using `GET`, not `POST`.

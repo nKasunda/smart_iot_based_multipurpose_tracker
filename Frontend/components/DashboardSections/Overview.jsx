@@ -25,12 +25,25 @@ export default function Overview({
     }).length;
   }, [devices]);
 
-  const warningCount = (alerts?.lowBatteryDevices?.length || 0) + (alerts?.inactiveDevices?.length || 0);
+  const warningCount = Number.isFinite(Number(alerts?.total))
+    ? Number(alerts.total)
+    : Array.isArray(alerts?.items)
+      ? alerts.items.length
+      : (alerts?.lowBatteryDevices?.length || 0) +
+        (alerts?.inactiveDevices?.length || 0) +
+        (alerts?.poorSignalDevices?.length || 0);
 
   const alertItems = useMemo(() => {
-    if (Array.isArray(alerts?.items)) return alerts.items;
+    if (Array.isArray(alerts?.items)) {
+      return alerts.items.slice().sort((a, b) => {
+        const aTime = new Date(a.receivedAt || a.createdAt || a.lastSeen || 0).getTime();
+        const bTime = new Date(b.receivedAt || b.createdAt || b.lastSeen || 0).getTime();
+        return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
+      });
+    }
     const low = alerts?.lowBatteryDevices || [];
     const inactive = alerts?.inactiveDevices || [];
+    const poorSignal = alerts?.poorSignalDevices || [];
     return [
       ...(low || []).map((d) => ({
         type: "low_battery",
@@ -46,7 +59,19 @@ export default function Overview({
         battery: d.battery,
         lastSeen: d.lastSeen,
       })),
-    ];
+      ...(poorSignal || []).map((d) => ({
+        type: "poor_signal",
+        device_uid: d.device_uid,
+        imei: d.imei,
+        battery: d.battery,
+        signalStrength: d.signalStrength,
+        lastSeen: d.lastSeen,
+      })),
+    ].sort((a, b) => {
+      const aTime = new Date(a.lastSeen || 0).getTime();
+      const bTime = new Date(b.lastSeen || 0).getTime();
+      return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
+    });
   }, [alerts]);
 
   const typeLabel = (t) => {
@@ -83,7 +108,7 @@ export default function Overview({
       bgColor: "#16a34a",
     },
     {
-      label: "Warnings",
+      label: "Alerts",
       value: warningCount,
       icon: <FiAlertTriangle size={28} color="#ffffff" />,
       bgColor: "#dc2626",
@@ -262,8 +287,8 @@ export default function Overview({
                         ? `Battery: ${a.battery ?? "—"}%`
                         : a.type === "poor_signal"
                           ? `Signal: ${a.signalStrength ?? "—"}`
-                        : a.lastSeen
-                          ? formatDateTime(a.lastSeen, dateFormat, clockFormat)
+                        : a.receivedAt || a.createdAt || a.lastSeen
+                          ? formatDateTime(a.receivedAt || a.createdAt || a.lastSeen, dateFormat, clockFormat)
                           : "—"}
                     </span>
                   </div>

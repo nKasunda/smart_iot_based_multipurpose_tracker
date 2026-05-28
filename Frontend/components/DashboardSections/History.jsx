@@ -7,18 +7,82 @@ import { formatDateTime, useSettings } from "../../context/SettingsContext";
 
 const TrackerLeafletMap = dynamic(() => import("../TrackerLeafletMap"), { ssr: false });
 
-function isoFromDatetimeLocal(value) {
-  if (!value) return "";
-  const dt = new Date(value);
-  if (Number.isNaN(dt.getTime())) return "";
-  return dt.toISOString();
+function datePlaceholder(dateFormat) {
+  if (dateFormat === "MM/DD/YYYY") return "05/28/2026";
+  if (dateFormat === "YYYY-MM-DD") return "2026-05-28";
+  return "28/05/2026";
+}
+
+function formatDateOnly(date, dateFormat) {
+  if (!date || !Number.isFinite(date.getTime())) return "";
+  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const yyyy = date.getFullYear();
+  if (dateFormat === "MM/DD/YYYY") return `${mm}/${dd}/${yyyy}`;
+  if (dateFormat === "YYYY-MM-DD") return `${yyyy}-${mm}-${dd}`;
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+function parseDateOnly(value, dateFormat) {
+  const text = String(value || "").trim();
+  if (!text) return null;
+
+  const parts = text.match(/^(\d{1,4})[/-](\d{1,2})[/-](\d{1,4})$/);
+  if (!parts) return null;
+
+  let day;
+  let month;
+  let year;
+  if (dateFormat === "YYYY-MM-DD") {
+    year = Number(parts[1]);
+    month = Number(parts[2]);
+    day = Number(parts[3]);
+  } else if (dateFormat === "MM/DD/YYYY") {
+    month = Number(parts[1]);
+    day = Number(parts[2]);
+    year = Number(parts[3]);
+  } else {
+    day = Number(parts[1]);
+    month = Number(parts[2]);
+    year = Number(parts[3]);
+  }
+
+  if (year < 100) year += 2000;
+  const date = new Date(year, month - 1, day);
+  if (
+    !Number.isFinite(date.getTime()) ||
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+  return date;
+}
+
+function isoFromDateAndTime(dateText, timeText, dateFormat, endOfDay = false) {
+  if (!dateText) return "";
+  const date = parseDateOnly(dateText, dateFormat);
+  if (!date) return "";
+  const time = String(timeText || "").match(/^(\d{1,2}):(\d{2})$/);
+  if (time) {
+    date.setHours(Number(time[1]), Number(time[2]), 0, 0);
+  } else if (endOfDay) {
+    date.setHours(23, 59, 59, 999);
+  } else {
+    date.setHours(0, 0, 0, 0);
+  }
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString();
 }
 
 export default function History({ devices, latestByDevice, selectedDeviceId, setSelectedDeviceId }) {
   const { dateFormat, clockFormat } = useSettings();
 
-  const [from,    setFrom]    = useState("");
-  const [to,      setTo]      = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [fromTime, setFromTime] = useState("00:00");
+  const [toDate,   setToDate]   = useState("");
+  const [toTime,   setToTime]   = useState("23:59");
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState("");
   const [info,    setInfo]    = useState("");
@@ -28,14 +92,19 @@ export default function History({ devices, latestByDevice, selectedDeviceId, set
 
   const load = async () => {
     if (!selectedDeviceId) return;
+    if ((fromDate && !parseDateOnly(fromDate, dateFormat)) || (toDate && !parseDateOnly(toDate, dateFormat))) {
+      setError(`Enter dates using ${dateFormat}.`);
+      setInfo("");
+      return;
+    }
     setLoading(true);
     setError("");
     setInfo("");
     try {
       const rows = await getHistory({
         device_id: selectedDeviceId,
-        from: isoFromDatetimeLocal(from),
-        to:   isoFromDatetimeLocal(to),
+        from: isoFromDateAndTime(fromDate, fromTime, dateFormat),
+        to:   isoFromDateAndTime(toDate, toTime, dateFormat, true),
         limit: 5000,
       });
       const list = Array.isArray(rows) ? rows.slice() : [];
@@ -43,8 +112,10 @@ export default function History({ devices, latestByDevice, selectedDeviceId, set
       setPath(list);
 
       // ── show formatted date range in the info message ──
-      const fromLabel = from ? formatDateTime(new Date(from).toISOString(), dateFormat, clockFormat) : "beginning";
-      const toLabel   = to   ? formatDateTime(new Date(to).toISOString(),   dateFormat, clockFormat) : "now";
+      const fromIso = isoFromDateAndTime(fromDate, fromTime, dateFormat);
+      const toIso = isoFromDateAndTime(toDate, toTime, dateFormat, true);
+      const fromLabel = fromIso ? formatDateTime(fromIso, dateFormat, clockFormat) : "beginning";
+      const toLabel   = toIso   ? formatDateTime(toIso, dateFormat, clockFormat) : "now";
       setInfo(`Loaded ${list.length} points — ${fromLabel} to ${toLabel}`);
 
     } catch (err) {
@@ -97,16 +168,29 @@ export default function History({ devices, latestByDevice, selectedDeviceId, set
               From Date
               <span style={fmtBadge}>{dateFormat}</span>
             </label>
-            <input
-              type="datetime-local"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              style={input}
-            />
-            {/* show formatted preview below input */}
-            {from && (
+            <div style={dateTimeRow}>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                onBlur={() => {
+                  const parsed = parseDateOnly(fromDate, dateFormat);
+                  if (parsed) setFromDate(formatDateOnly(parsed, dateFormat));
+                }}
+                placeholder={datePlaceholder(dateFormat)}
+                style={input}
+              />
+              <input
+                type="time"
+                value={fromTime}
+                onChange={(e) => setFromTime(e.target.value)}
+                style={{ ...input, maxWidth: 96 }}
+              />
+            </div>
+            {isoFromDateAndTime(fromDate, fromTime, dateFormat) && (
               <p style={preview}>
-                {formatDateTime(new Date(from).toISOString(), dateFormat, clockFormat)}
+                {formatDateTime(isoFromDateAndTime(fromDate, fromTime, dateFormat), dateFormat, clockFormat)}
               </p>
             )}
           </div>
@@ -117,16 +201,29 @@ export default function History({ devices, latestByDevice, selectedDeviceId, set
               To Date
               <span style={fmtBadge}>{dateFormat}</span>
             </label>
-            <input
-              type="datetime-local"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              style={input}
-            />
-            {/* show formatted preview below input */}
-            {to && (
+            <div style={dateTimeRow}>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                onBlur={() => {
+                  const parsed = parseDateOnly(toDate, dateFormat);
+                  if (parsed) setToDate(formatDateOnly(parsed, dateFormat));
+                }}
+                placeholder={datePlaceholder(dateFormat)}
+                style={input}
+              />
+              <input
+                type="time"
+                value={toTime}
+                onChange={(e) => setToTime(e.target.value)}
+                style={{ ...input, maxWidth: 96 }}
+              />
+            </div>
+            {isoFromDateAndTime(toDate, toTime, dateFormat, true) && (
               <p style={preview}>
-                {formatDateTime(new Date(to).toISOString(), dateFormat, clockFormat)}
+                {formatDateTime(isoFromDateAndTime(toDate, toTime, dateFormat, true), dateFormat, clockFormat)}
               </p>
             )}
           </div>
@@ -149,7 +246,15 @@ export default function History({ devices, latestByDevice, selectedDeviceId, set
 
           {/* Clear button */}
           <button
-            onClick={() => { setPath([]); setInfo(""); setError(""); }}
+            onClick={() => {
+              setFromDate("");
+              setFromTime("00:00");
+              setToDate("");
+              setToTime("23:59");
+              setPath([]);
+              setInfo("");
+              setError("");
+            }}
             style={{
               padding: "8px 10px", borderRadius: 8,
               border: "1px solid #e5e7eb", background: "#ffffff",
@@ -202,6 +307,12 @@ const input = {
   width: "100%", padding: "8px 10px",
   borderRadius: 8, border: "1px solid #e5e7eb",
   fontSize: 13, height: 38, boxSizing: "border-box",
+};
+
+const dateTimeRow = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) 96px",
+  gap: 6,
 };
 
 const fmtBadge = {

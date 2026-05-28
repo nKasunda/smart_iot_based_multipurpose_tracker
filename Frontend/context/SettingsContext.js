@@ -8,14 +8,11 @@ const SettingsContext = createContext();
 const DEFAULT_SETTINGS = {
   uiTheme: "light",
   clockFormat: "12h",
-  alertEmail: true,
+  alertEnabled: true,
   alertPush: false,
   dateFormat: "DD/MM/YYYY",
   distanceUnit: "km",
   timezone: "Africa/Lilongwe",
-  alertCritical: true,
-  alertWarning: true,
-  alertInfo: false,
   mapStyle: "street",
 };
 
@@ -59,14 +56,11 @@ export function SettingsProvider({ children }) {
   const auth = useAuth();
   const [clockFormat,   setClockFormat]   = useState(DEFAULT_SETTINGS.clockFormat);
   const [uiTheme,       setUiTheme]       = useState(DEFAULT_SETTINGS.uiTheme);
-  const [alertEmail,    setAlertEmail]    = useState(DEFAULT_SETTINGS.alertEmail);
+  const [alertEnabled,  setAlertEnabled]  = useState(DEFAULT_SETTINGS.alertEnabled);
   const [alertPush,     setAlertPush]     = useState(DEFAULT_SETTINGS.alertPush);
   const [dateFormat,    setDateFormat]    = useState(DEFAULT_SETTINGS.dateFormat);
   const [distanceUnit,  setDistanceUnit]  = useState(DEFAULT_SETTINGS.distanceUnit);
   const [timezone,      setTimezone]      = useState(DEFAULT_SETTINGS.timezone);
-  const [alertCritical, setAlertCritical] = useState(DEFAULT_SETTINGS.alertCritical);
-  const [alertWarning,  setAlertWarning]  = useState(DEFAULT_SETTINGS.alertWarning);
-  const [alertInfo,     setAlertInfo]     = useState(DEFAULT_SETTINGS.alertInfo);
   const [preferredColorScheme, setPreferredColorScheme] = useState("light");
   const [mapStyle,      setMapStyle]      = useState(DEFAULT_SETTINGS.mapStyle);
   const effectiveTheme = uiTheme === "device" ? preferredColorScheme : uiTheme;
@@ -75,14 +69,12 @@ export function SettingsProvider({ children }) {
     if (s.uiTheme      !== undefined) setUiTheme(normalizeUiTheme(s.uiTheme));
     if (s.clockFormat  !== undefined) setClockFormat(s.clockFormat);
     if (s.mapStyle     !== undefined) setMapStyle(normalizeMapStyle(s.mapStyle));
-    if (s.alertEmail   !== undefined) setAlertEmail(s.alertEmail);
+    if (s.alertEnabled !== undefined) setAlertEnabled(s.alertEnabled);
+    if (s.alertEmail   !== undefined && s.alertEnabled === undefined) setAlertEnabled(s.alertEmail);
     if (s.alertPush    !== undefined) setAlertPush(s.alertPush);
     if (s.dateFormat   !== undefined) setDateFormat(s.dateFormat);
     if (s.distanceUnit !== undefined) setDistanceUnit(s.distanceUnit);
     if (s.timezone     !== undefined) setTimezone(s.timezone);
-    if (s.alertCritical !== undefined) setAlertCritical(s.alertCritical);
-    if (s.alertWarning  !== undefined) setAlertWarning(s.alertWarning);
-    if (s.alertInfo     !== undefined) setAlertInfo(s.alertInfo);
   };
 
   useEffect(() => {
@@ -164,14 +156,11 @@ export function SettingsProvider({ children }) {
         uiTheme,
         effectiveTheme,
         mapStyle,
-        alertEmail,
+        alertEnabled,
         alertPush,
         dateFormat,
         distanceUnit,
         timezone,
-        alertCritical,
-        alertWarning,
-        alertInfo,
         preferredColorScheme,
         save,
       }}

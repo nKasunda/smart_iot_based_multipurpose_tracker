@@ -7,7 +7,7 @@ export default function Alerts({ alerts, onRefresh }) {
   const low = alerts?.lowBatteryDevices || [];
   const inactive = alerts?.inactiveDevices || [];
   const poorSignal = alerts?.poorSignalDevices || [];
-  const items = Array.isArray(alerts?.items)
+  const rawItems = Array.isArray(alerts?.items)
     ? alerts.items
     : [
         ...(low || []).map((d) => ({
@@ -33,6 +33,11 @@ export default function Alerts({ alerts, onRefresh }) {
           lastSeen: d.lastSeen,
         })),
       ];
+  const items = rawItems.slice().sort((a, b) => {
+    const aTime = new Date(a.receivedAt || a.createdAt || a.lastSeen || 0).getTime();
+    const bTime = new Date(b.receivedAt || b.createdAt || b.lastSeen || 0).getTime();
+    return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
+  });
 
   const typeLabel = (t) => {
     if (t === "low_battery") return "Low battery";
@@ -123,7 +128,7 @@ export default function Alerts({ alerts, onRefresh }) {
             <span>IMEI</span>
             <span style={{ justifySelf: "center" }}>Type</span>
             <span>Value</span>
-            <span>Last Seen</span>
+            <span>Received</span>
           </div>
         </div>
 
@@ -183,7 +188,9 @@ export default function Alerts({ alerts, onRefresh }) {
                   {a.type === "poor_signal" ? a.signalStrength ?? "—" : `${a.battery ?? "—"}%`}
                 </span>
                 <span style={{ color: "#64748b", fontSize: 11 }}>
-                  {a.lastSeen ? formatDateTime(a.lastSeen, dateFormat, clockFormat) : "—"}
+                  {a.receivedAt || a.createdAt || a.lastSeen
+                    ? formatDateTime(a.receivedAt || a.createdAt || a.lastSeen, dateFormat, clockFormat)
+                    : "—"}
                 </span>
               </div>
             );

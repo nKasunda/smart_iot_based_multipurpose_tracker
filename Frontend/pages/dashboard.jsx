@@ -167,9 +167,12 @@ export default function DashboardPage() {
   }, [filteredDevices]);
 
   const warningCount = useMemo(() => {
-    const low      = alerts?.lowBatteryDevices?.length || 0;
-    const inactive = alerts?.inactiveDevices?.length  || 0;
-    return low + inactive;
+    if (Number.isFinite(Number(alerts?.total))) return Number(alerts.total);
+    if (Array.isArray(alerts?.items)) return alerts.items.length;
+    const low        = alerts?.lowBatteryDevices?.length || 0;
+    const inactive   = alerts?.inactiveDevices?.length  || 0;
+    const poorSignal = alerts?.poorSignalDevices?.length || 0;
+    return low + inactive + poorSignal;
   }, [alerts]);
 
   useEffect(() => {
@@ -243,19 +246,13 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const items = Array.isArray(alerts?.items) ? alerts.items : [];
-    if (!items.length || !settings.alertPush) return;
+    if (!items.length || !settings.alertEnabled || !settings.alertPush) return;
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
 
-    const typeEnabled = (item) => {
-      const severity = item.severity || (item.type === "inactive" ? "critical" : "warning");
-      if (severity === "critical") return settings.alertCritical;
-      if (severity === "warning") return settings.alertWarning;
-      return settings.alertInfo;
-    };
-
     items.forEach((item) => {
-      if (!typeEnabled(item)) return;
-      const key = `${item.type}:${item.device_uid}:${item.lastSeen || item.battery || item.signalStrength || ""}`;
+      const key = item.id
+        ? `alert:${item.id}`
+        : `${item.type}:${item.device_uid}:${item.receivedAt || item.createdAt || item.lastSeen || item.battery || item.signalStrength || ""}`;
       if (notifiedAlertsRef.current.has(key)) return;
       notifiedAlertsRef.current.add(key);
       new Notification(`TrackA ${item.type?.replace(/_/g, " ") || "alert"}`, {
@@ -265,10 +262,8 @@ export default function DashboardPage() {
     });
   }, [
     alerts,
+    settings.alertEnabled,
     settings.alertPush,
-    settings.alertCritical,
-    settings.alertWarning,
-    settings.alertInfo,
   ]);
 
   const ActiveComponent = sectionComponents[activeSection] || Overview;

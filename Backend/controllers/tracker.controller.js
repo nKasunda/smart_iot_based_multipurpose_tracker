@@ -1,4 +1,4 @@
-const { Tracker, Location, User } = require("../models");
+const { Alert, Tracker, Location, User } = require("../models");
 const { Op } = require("sequelize");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
@@ -633,6 +633,31 @@ exports.alerts = async (req, res) => {
     const accessWhere = buildAccessWhere(req.user);
     const warningThreshold = new Date(Date.now() - 15 * 60 * 1000);
     const lowBatteryThreshold = 20;
+    const accessibleTrackers = await Tracker.findAll({
+      attributes: ["device_uid"],
+      where: accessWhere,
+      raw: true,
+    });
+    const accessibleTrackerIds = accessibleTrackers.map((row) => row.device_uid);
+
+    const storedAlertWhere = req.user?.role === "admin"
+      ? {}
+      : { tracker_id: { [Op.in]: accessibleTrackerIds } };
+
+    const storedAlerts = accessibleTrackerIds.length || req.user?.role === "admin"
+      ? await Alert.findAll({
+          where: storedAlertWhere,
+          include: [
+            {
+              model: Tracker,
+              attributes: ["device_uid", "imei", "battery", "signalStrength", "lastSeen"],
+              required: false,
+            },
+          ],
+          order: [["createdAt", "DESC"]],
+          limit: 100,
+        })
+      : [];
 
     const inactiveDevices = await Tracker.findAll({
       where: {
@@ -675,7 +700,7 @@ exports.alerts = async (req, res) => {
       limit: 50,
     });
 
-    const items = [
+    const generatedItems = [
       ...(lowBatteryDevices || []).map((d) => ({
         type: "low_battery",
         severity: "warning",
@@ -705,11 +730,37 @@ exports.alerts = async (req, res) => {
         message: `Signal is weak${d.signalStrength !== null && d.signalStrength !== undefined ? ` (${d.signalStrength})` : ""}`,
       })),
     ];
+    const storedItems = storedAlerts.map((alert) => {
+      const tracker = alert.Tracker;
+      return {
+        id: alert.id,
+        type: alert.type || "alert",
+        severity: alert.severity || "warning",
+        device_uid: alert.tracker_id,
+        tracker_id: alert.tracker_id,
+        imei: tracker?.imei ?? null,
+        battery: tracker?.battery ?? null,
+        signalStrength: tracker?.signalStrength ?? null,
+        lastSeen: tracker?.lastSeen ?? null,
+        receivedAt: alert.createdAt ?? null,
+        createdAt: alert.createdAt ?? null,
+        message: alert.message || "Device alert received",
+        isResolved: !!alert.isResolved,
+      };
+    });
+
+    const items = (storedItems.length ? storedItems : generatedItems).sort((a, b) => {
+      const aTime = new Date(a.receivedAt || a.createdAt || a.lastSeen || 0).getTime();
+      const bTime = new Date(b.receivedAt || b.createdAt || b.lastSeen || 0).getTime();
+      return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
+    });
 
     res.json({
       lowBatteryDevices,
       inactiveDevices,
       poorSignalDevices,
+      storedAlerts: storedItems,
+      total: items.length,
       items,
     });
   } catch (err) {

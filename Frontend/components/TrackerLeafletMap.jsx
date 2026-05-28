@@ -129,6 +129,17 @@ function getBatteryColor(battery) {
   return "#dc2626";
 }
 
+const TRACKER_PALETTE = ["#2563eb", "#16a34a", "#f59e0b", "#9333ea"];
+
+function getTrackerPaletteColor(deviceId) {
+  const text = String(deviceId || "");
+  let hash = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
+  }
+  return TRACKER_PALETTE[hash % TRACKER_PALETTE.length];
+}
+
 function getBearing(from, to) {
   if (!from || !to) return 0;
   const lat1 = (Number(from.lat) * Math.PI) / 180;
@@ -207,10 +218,10 @@ export default function TrackerLeafletMap({
 
   const markerColorByDevice = useMemo(() => {
     const colors = {};
-    entries.forEach(([deviceId, loc], idx) => {
+    entries.forEach(([deviceId, loc]) => {
       const online = isOnlineFromTimestamp(loc?.timestamp || loc?.lastSeen || loc?.last_seen);
       const batteryColor = getBatteryColor(loc.battery);
-      const baseColor = batteryColor ?? ["#2563eb", "#16a34a", "#f59e0b", "#9333ea"][idx % 4];
+      const baseColor = batteryColor ?? getTrackerPaletteColor(deviceId);
       colors[deviceId] = online ? baseColor : "#9ca3af";
     });
     return colors;

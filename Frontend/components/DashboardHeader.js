@@ -31,80 +31,23 @@ function formatTime(date, fmt) {
 }
 
 // ── Alerts Tab ───────────────────────────────────────────────
-function AlertsTab({ alertEmail, alertPush, save, togglePush }) {
-  const { alertCritical, alertWarning, alertInfo } = useSettings();
-
-  const alertTypes = [
-    {
-      key:     "critical",
-      label:   "Critical",
-      sub:     "Requires immediate action",
-      dot:     "#dc2626",
-      checked: alertCritical,
-    },
-    {
-      key:     "warning",
-      label:   "Warnings",
-      sub:     "Needs attention soon",
-      dot:     "#f59e0b",
-      checked: alertWarning,
-    },
-    {
-      key:     "info",
-      label:   "Informational",
-      sub:     "Routine status changes",
-      dot:     "#2563eb",
-      checked: alertInfo,
-    },
-  ];
-
+function AlertsTab({ alertEnabled, alertPush, save, togglePush }) {
   return (
     <div>
-      <p style={d.sectionLabel}>Alert channels</p>
-      <DRow label="Email notifications" sub="Sent to your registered email">
-        <DSwitch checked={alertEmail} onChange={v => save({ alertEmail: v })} />
+      <p style={d.sectionLabel}>Alert delivery</p>
+      <DRow label="Enable alerts" sub="Receive every alert generated for your trackers">
+        <DSwitch checked={alertEnabled} onChange={v => save({ alertEnabled: v })} />
       </DRow>
-      <DRow label="Browser push" sub="Notified even when tab is in background">
-        <DSwitch checked={alertPush} onChange={togglePush} />
+      <DRow label="Browser push" sub="Show alerts from this browser when alerts are enabled">
+        <DSwitch checked={alertEnabled && alertPush} disabled={!alertEnabled} onChange={togglePush} />
       </DRow>
-
-      <div style={d.divider} />
-      <p style={d.sectionLabel}>Alert types</p>
-      <p style={{ fontSize: 10, color: "#94a3b8", margin: "0 0 8px" }}>
-        Choose which alert types you want to receive
-      </p>
-
-      {alertTypes.map(({ key, label, sub, dot, checked }) => (
-        <div key={key} style={{ marginBottom: 4 }}>
-          <div style={{
-            display: "flex", alignItems: "center",
-            justifyContent: "space-between", gap: 12,
-            padding: "8px 0", borderBottom: "1px solid #f8fafc",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{
-                width: 8, height: 8, borderRadius: "50%",
-                background: dot, flexShrink: 0,
-              }} />
-              <div>
-                <p style={d.rowLabel}>{label}</p>
-                <p style={d.rowSub}>{sub}</p>
-              </div>
-            </div>
-            <DSwitch
-              checked={checked}
-              onChange={v => save({ [`alert${key.charAt(0).toUpperCase() + key.slice(1)}`]: v })}
-            />
-          </div>
-        </div>
-      ))}
     </div>
   );
 }
 
 // ── Profile Dropdown — rendered via portal ───────────────────
 function ProfileDropdown({ user, onClose, isAdmin, anchorRef }) {
-  const { clockFormat, uiTheme, alertEmail, alertPush, dateFormat, save } = useSettings();
+  const { clockFormat, uiTheme, alertEnabled, alertPush, dateFormat, save } = useSettings();
   const { refresh } = useAuth();
 
   const [name,         setName]         = useState(user?.name  || "");
@@ -257,42 +200,27 @@ function ProfileDropdown({ user, onClose, isAdmin, anchorRef }) {
               <div style={d.divider} />
               <p style={d.sectionLabel}>Change password</p>
 
-              <DField label="Current password">
-                <div style={d.inputWrap}>
-                  <input style={d.inputInner}
-                    type={showCurrent ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={current} onChange={e => setCurrent(e.target.value)} />
-                  <button style={d.eyeBtn} type="button"
-                    onClick={() => setShowCurrent(v => !v)}>
-                    {showCurrent ? <FiEye size={14} /> : <FiEyeOff size={14} />}
-                  </button>
-                </div>
-              </DField>
-              <DField label="New password">
-                <div style={d.inputWrap}>
-                  <input style={d.inputInner}
-                    type={showNext ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={nextPw} onChange={e => setNextPw(e.target.value)} />
-                  <button style={d.eyeBtn} type="button"
-                    onClick={() => setShowNext(v => !v)}>
-                    {showNext ? <FiEye size={14} /> : <FiEyeOff size={14} />}
-                  </button>
-                </div>
-              </DField>
-              <DField label="Confirm new password">
-                <div style={d.inputWrap}>
-                  <input style={d.inputInner}
-                    type={showConfirm ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={confirm} onChange={e => setConfirm(e.target.value)} />
-                  <button style={d.eyeBtn} type="button"
-                    onClick={() => setShowConfirm(v => !v)}>
-                    {showConfirm ? <FiEye size={14} /> : <FiEyeOff size={14} />}
-                  </button>
-                </div>
-              </DField>
+              <PasswordField
+                label="Current password"
+                value={current}
+                visible={showCurrent}
+                onChange={setCurrent}
+                onToggle={() => setShowCurrent(v => !v)}
+              />
+              <PasswordField
+                label="New password"
+                value={nextPw}
+                visible={showNext}
+                onChange={setNextPw}
+                onToggle={() => setShowNext(v => !v)}
+              />
+              <PasswordField
+                label="Confirm new password"
+                value={confirm}
+                visible={showConfirm}
+                onChange={setConfirm}
+                onToggle={() => setShowConfirm(v => !v)}
+              />
               {pwError && <p style={d.error}>{pwError}</p>}
               <div style={d.saveRow}>
                 <button style={d.saveBtn} onClick={savePassword}>Update password</button>
@@ -382,7 +310,7 @@ function ProfileDropdown({ user, onClose, isAdmin, anchorRef }) {
           {/* ── ALERTS TAB ── */}
           {tab === "alerts" && (
             <AlertsTab
-              alertEmail={alertEmail}
+              alertEnabled={alertEnabled}
               alertPush={alertPush}
               save={save}
               togglePush={togglePush}
@@ -392,16 +320,11 @@ function ProfileDropdown({ user, onClose, isAdmin, anchorRef }) {
           {/* ── ADMIN TAB ── */}
           {tab === "admin" && isAdmin && (
             <div>
-              <p style={d.sectionLabel}>Admin controls</p>
-              <DRow label="Strict IMEI ingest" sub="Unknown IMEIs are rejected before storing locations">
-                <DSwitch checked={true} onChange={() => {}} />
-              </DRow>
-              <DRow label="Owner-scoped realtime" sub="Users receive socket updates only for their assigned devices">
-                <DSwitch checked={true} onChange={() => {}} />
-              </DRow>
-              <DRow label="Admin sees all devices" sub="Admin dashboard keeps system-wide visibility">
-                <DSwitch checked={true} onChange={() => {}} />
-              </DRow>
+              <p style={d.sectionLabel}>Administration</p>
+              <p style={d.sectionSub}>Use the Devices section for the admin actions that change system data.</p>
+              <DRow label="Provision trackers" sub="Register a Device ID and IMEI before a tracker can send data" />
+              <DRow label="Manage ownership" sub="Assign, change, or clear the user linked to a tracker" />
+              <DRow label="Inventory cleanup" sub="Edit tracker identifiers or remove devices that should no longer report" />
             </div>
           )}
 
@@ -433,6 +356,32 @@ function DRow({ label, sub, children }) {
       </div>
       {children}
     </div>
+  );
+}
+
+function PasswordField({ label, value, visible, onChange, onToggle }) {
+  return (
+    <DField label={label}>
+      <div style={d.inputWrap}>
+        <input
+          style={d.inputInner}
+          type={visible ? "text" : "password"}
+          placeholder="••••••••"
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          autoComplete="new-password"
+        />
+        <button
+          style={d.eyeBtn}
+          type="button"
+          aria-label={visible ? `Hide ${label}` : `Show ${label}`}
+          title={visible ? "Hide password" : "Show password"}
+          onClick={onToggle}
+        >
+          {visible ? <FiEyeOff size={14} /> : <FiEye size={14} />}
+        </button>
+      </div>
+    </DField>
   );
 }
 

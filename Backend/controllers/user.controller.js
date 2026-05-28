@@ -20,11 +20,8 @@ const allowedSettings = new Set([
   "dateFormat",
   "distanceUnit",
   "timezone",
-  "alertEmail",
+  "alertEnabled",
   "alertPush",
-  "alertCritical",
-  "alertWarning",
-  "alertInfo",
   "mapStyle",
 ]);
 
