@@ -4,8 +4,30 @@ const nodemailer = require('nodemailer');
 
 let transporter;
 
+function envValue(name) {
+  return String(process.env[name] || '').trim();
+}
+
+function smtpHost() {
+  return envValue('SMTP_HOST');
+}
+
+function smtpUser() {
+  return envValue('SMTP_USER');
+}
+
+function smtpPass() {
+  const pass = envValue('SMTP_PASS');
+  const host = smtpHost().toLowerCase();
+
+  // Gmail shows app passwords grouped with spaces. SMTP auth expects the
+  // 16-character password, so accept either format in the deployment env.
+  if (host.includes('gmail.com')) return pass.replace(/\s+/g, '');
+  return pass;
+}
+
 function emailEnabled() {
-  return !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+  return !!(smtpHost() && smtpUser() && smtpPass());
 }
 
 function getTransporter() {
@@ -13,15 +35,15 @@ function getTransporter() {
   if (transporter) return transporter;
 
   transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
+    host: smtpHost(),
     port: Number(process.env.SMTP_PORT || 587),
-    secure: process.env.SMTP_SECURE === 'true',
+    secure: envValue('SMTP_SECURE').toLowerCase() === 'true',
     connectionTimeout: Number(process.env.SMTP_TIMEOUT_MS || 8000),
     greetingTimeout: Number(process.env.SMTP_TIMEOUT_MS || 8000),
     socketTimeout: Number(process.env.SMTP_TIMEOUT_MS || 8000),
     auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
+      user: smtpUser(),
+      pass: smtpPass(),
     },
   });
 
@@ -29,7 +51,7 @@ function getTransporter() {
 }
 
 function fromAddress() {
-  return process.env.SMTP_FROM || process.env.MAIL_FROM || process.env.SMTP_USER;
+  return envValue('SMTP_FROM') || envValue('MAIL_FROM') || smtpUser();
 }
 
 function escapeHtml(value) {
