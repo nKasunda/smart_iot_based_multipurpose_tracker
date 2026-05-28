@@ -634,11 +634,11 @@ exports.alerts = async (req, res) => {
     const warningThreshold = new Date(Date.now() - 15 * 60 * 1000);
     const lowBatteryThreshold = 20;
     const accessibleTrackers = await Tracker.findAll({
-      attributes: ["device_uid"],
+      attributes: ["id", "device_uid"],
       where: accessWhere,
       raw: true,
     });
-    const accessibleTrackerIds = accessibleTrackers.map((row) => row.device_uid);
+    const accessibleTrackerIds = accessibleTrackers.map((row) => row.id);
 
     const storedAlertWhere = req.user?.role === "admin"
       ? {}
@@ -650,7 +650,7 @@ exports.alerts = async (req, res) => {
           include: [
             {
               model: Tracker,
-              attributes: ["device_uid", "imei", "battery", "signalStrength", "lastSeen"],
+              attributes: ["id", "device_uid", "imei", "battery", "signalStrength", "lastSeen"],
               required: false,
             },
           ],
@@ -736,7 +736,7 @@ exports.alerts = async (req, res) => {
         id: alert.id,
         type: alert.type || "alert",
         severity: alert.severity || "warning",
-        device_uid: alert.tracker_id,
+        device_uid: tracker?.device_uid ?? String(alert.tracker_id),
         tracker_id: alert.tracker_id,
         imei: tracker?.imei ?? null,
         battery: tracker?.battery ?? null,

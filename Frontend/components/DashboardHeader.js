@@ -46,7 +46,7 @@ function AlertsTab({ alertEnabled, alertPush, save, togglePush }) {
 }
 
 // ── Profile Dropdown — rendered via portal ───────────────────
-function ProfileDropdown({ user, onClose, isAdmin, anchorRef }) {
+function ProfileDropdown({ user, onClose, anchorRef }) {
   const { clockFormat, uiTheme, alertEnabled, alertPush, dateFormat, save } = useSettings();
   const { refresh } = useAuth();
 
@@ -133,7 +133,6 @@ function ProfileDropdown({ user, onClose, isAdmin, anchorRef }) {
     { id: "profile", label: "Profile" },
     { id: "display", label: "Display" },
     { id: "alerts",  label: "Alerts"  },
-    ...(isAdmin ? [{ id: "admin", label: "Admin" }] : []),
   ];
 
   const panel = (
@@ -317,17 +316,6 @@ function ProfileDropdown({ user, onClose, isAdmin, anchorRef }) {
             />
           )}
 
-          {/* ── ADMIN TAB ── */}
-          {tab === "admin" && isAdmin && (
-            <div>
-              <p style={d.sectionLabel}>Administration</p>
-              <p style={d.sectionSub}>Use the Devices section for the admin actions that change system data.</p>
-              <DRow label="Provision trackers" sub="Register a Device ID and IMEI before a tracker can send data" />
-              <DRow label="Manage ownership" sub="Assign, change, or clear the user linked to a tracker" />
-              <DRow label="Inventory cleanup" sub="Edit tracker identifiers or remove devices that should no longer report" />
-            </div>
-          )}
-
         </div>
       </div>
     </>
@@ -411,7 +399,6 @@ function DashboardHeader({ user, onLogout, socketConnected, profileOpen, onToggl
   const avatarRef = useRef(null);
   const serverOffsetRef = useRef(0);
 
-  const isAdmin = user?.role === "admin";
   const displayName  = user?.name || user?.email || "User";
 
   useEffect(() => {
@@ -520,7 +507,6 @@ function DashboardHeader({ user, onLogout, socketConnected, profileOpen, onToggl
             {profileOpen && (
               <ProfileDropdown
                 user={user}
-                isAdmin={isAdmin}
                 onClose={onToggleProfile}
                 anchorRef={avatarRef}
               />

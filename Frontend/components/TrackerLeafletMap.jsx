@@ -228,7 +228,7 @@ export default function TrackerLeafletMap({
   }, [entries]);
 
   const selectedPathColor = selectedDeviceId
-    ? markerColorByDevice[selectedDeviceId] || "#2563eb"
+    ? getTrackerPaletteColor(selectedDeviceId)
     : "#2563eb";
 
   // All device paths for real-time visualization
@@ -378,9 +378,9 @@ export default function TrackerLeafletMap({
           <Polyline
             positions={livePathPositions}
             pathOptions={{
-              color: "#0f172a",
+              color: "#1e3a8a",
               weight: 12,
-              opacity: 0.18,
+              opacity: 0.2,
               lineCap: "round",
               lineJoin: "round",
               className: "tracker-live-route-glow",
@@ -390,8 +390,8 @@ export default function TrackerLeafletMap({
             positions={livePathPositions}
             pathOptions={{
               color: selectedPathColor,
-              weight: 7,
-              opacity: 0.32,
+              weight: 8,
+              opacity: 0.4,
               lineCap: "round",
               lineJoin: "round",
             }}
@@ -401,7 +401,7 @@ export default function TrackerLeafletMap({
             interactive
             pathOptions={{
               color: selectedPathColor,
-              weight: 4,
+              weight: 5,
               opacity: 0.95,
               lineCap: "round",
               lineJoin: "round",
