@@ -30,7 +30,7 @@ const sectionComponents = {
 
 const DASHBOARD_SECTION_KEY = "dashboard.activeSection";
 const LIVE_PATH_TTL_MS = 2 * 60 * 1000;
-const LIVE_PATH_MAX_POINTS = 120;
+const LIVE_PATH_MAX_POINTS = 5000;
 
 function pointFromLocation(location) {
   const lat = Number(location?.lat);
@@ -138,26 +138,19 @@ export default function DashboardPage() {
 
     setLivePaths((prev) => {
       const next = {};
-      const activeIds = new Set();
 
       rows.forEach((location) => {
         const deviceId = location?.device_id || location?.device_uid || location?.trackerId;
         const point = pointFromLocation(location);
         if (!deviceId || !isLivePoint(point, now)) return;
 
-        activeIds.add(deviceId);
-        const existing = (prev[deviceId] || []).filter((p) => isLivePoint(p, now));
+        const existing = prev[deviceId] || [];
         const last = existing[existing.length - 1];
         const path = sameCoordinate(last, point)
           ? [...existing.slice(0, -1), { ...last, ...point }]
           : [...existing, point];
 
         next[deviceId] = path.slice(-LIVE_PATH_MAX_POINTS);
-      });
-
-      Object.keys(prev).forEach((deviceId) => {
-        if (!activeIds.has(deviceId)) return;
-        if (!next[deviceId]?.length) delete next[deviceId];
       });
 
       return next;

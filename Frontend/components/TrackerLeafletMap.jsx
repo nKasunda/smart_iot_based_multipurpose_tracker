@@ -119,6 +119,16 @@ function getSignalInfo(signalStrength) {
   return { value, label: String(value), quality: "Bad", color: "#dc2626" };
 }
 
+function getBatteryColor(battery) {
+  if (battery === null || battery === undefined || battery === "") return null;
+  const b = typeof battery === "number" ? battery : Number(battery);
+  if (!Number.isFinite(b)) return null;
+  if (b >= 75) return "#16a34a";
+  if (b >= 50) return "#eab308";
+  if (b >= 25) return "#f59e0b";
+  return "#dc2626";
+}
+
 function getBearing(from, to) {
   if (!from || !to) return 0;
   const lat1 = (Number(from.lat) * Math.PI) / 180;
@@ -195,6 +205,21 @@ export default function TrackerLeafletMap({
     return getBearing(livePath[livePath.length - 2], livePath[livePath.length - 1]);
   }, [livePath]);
 
+  const markerColorByDevice = useMemo(() => {
+    const colors = {};
+    entries.forEach(([deviceId, loc], idx) => {
+      const online = isOnlineFromTimestamp(loc?.timestamp || loc?.lastSeen || loc?.last_seen);
+      const batteryColor = getBatteryColor(loc.battery);
+      const baseColor = batteryColor ?? ["#2563eb", "#16a34a", "#f59e0b", "#9333ea"][idx % 4];
+      colors[deviceId] = online ? baseColor : "#9ca3af";
+    });
+    return colors;
+  }, [entries]);
+
+  const selectedPathColor = selectedDeviceId
+    ? markerColorByDevice[selectedDeviceId] || "#2563eb"
+    : "#2563eb";
+
   // All device paths for real-time visualization
   const allDevicePaths = useMemo(() => {
     if (!livePaths) return [];
@@ -210,10 +235,15 @@ export default function TrackerLeafletMap({
         const positions = path.filter((p) => Number.isFinite(p?.lat) && Number.isFinite(p?.lng)).map((p) => [p.lat, p.lng]);
         if (positions.length < 2) return null;
 
-        return { deviceId, positions, isSelected, isOnline };
+        return {
+          deviceId,
+          positions,
+          isSelected,
+          routeColor: markerColorByDevice[deviceId] || "#2563eb",
+        };
       })
       .filter(Boolean);
-  }, [livePaths, latestByDevice, selectedDeviceId]);
+  }, [livePaths, latestByDevice, markerColorByDevice, selectedDeviceId]);
 
   const activeLayer = useMemo(
     () => MAP_LAYERS.find((layer) => layer.key === mapStyle) ?? MAP_LAYERS[0],
@@ -226,16 +256,6 @@ export default function TrackerLeafletMap({
     : entries[0]
       ? [entries[0][1].lat, entries[0][1].lng]
       : null;
-
-  const getBatteryColor = (battery) => {
-    if (battery === null || battery === undefined || battery === "") return null;
-    const b = typeof battery === "number" ? battery : Number(battery);
-    if (!Number.isFinite(b)) return null;
-    if (b >= 75) return "#16a34a";
-    if (b >= 50) return "#eab308";
-    if (b >= 25) return "#f59e0b";
-    return "#dc2626";
-  };
 
   return (
     <MapContainer
@@ -256,7 +276,7 @@ export default function TrackerLeafletMap({
       <FitAllControl entries={entries} />
 
       {/* Render paths for all online devices */}
-      {allDevicePaths.map(({ deviceId, positions, isSelected, isOnline }) => {
+      {allDevicePaths.map(({ deviceId, positions, isSelected, routeColor }) => {
         // Use more prominent colors for selected device
         if (isSelected) {
           return (
@@ -275,9 +295,9 @@ export default function TrackerLeafletMap({
               <Polyline
                 positions={positions}
                 pathOptions={{
-                  color: "#38bdf8",
+                  color: routeColor,
                   weight: 7,
-                  opacity: 0.34,
+                  opacity: 0.32,
                   lineCap: "round",
                   lineJoin: "round",
                 }}
@@ -286,7 +306,7 @@ export default function TrackerLeafletMap({
                 positions={positions}
                 interactive
                 pathOptions={{
-                  color: "#2563eb",
+                  color: routeColor,
                   weight: 4,
                   opacity: 0.95,
                   lineCap: "round",
@@ -320,9 +340,9 @@ export default function TrackerLeafletMap({
             <Polyline
               positions={positions}
               pathOptions={{
-                color: "#94a3b8",
+                color: routeColor,
                 weight: 3,
-                opacity: 0.4,
+                opacity: 0.42,
                 lineCap: "round",
                 lineJoin: "round",
               }}
@@ -330,9 +350,9 @@ export default function TrackerLeafletMap({
             <Polyline
               positions={positions}
               pathOptions={{
-                color: "#cbd5e1",
+                color: routeColor,
                 weight: 1.5,
-                opacity: 0.6,
+                opacity: 0.72,
                 lineCap: "round",
                 lineJoin: "round",
               }}
@@ -358,9 +378,9 @@ export default function TrackerLeafletMap({
           <Polyline
             positions={livePathPositions}
             pathOptions={{
-              color: "#38bdf8",
+              color: selectedPathColor,
               weight: 7,
-              opacity: 0.34,
+              opacity: 0.32,
               lineCap: "round",
               lineJoin: "round",
             }}
@@ -369,7 +389,7 @@ export default function TrackerLeafletMap({
             positions={livePathPositions}
             interactive
             pathOptions={{
-              color: "#2563eb",
+              color: selectedPathColor,
               weight: 4,
               opacity: 0.95,
               lineCap: "round",
@@ -396,15 +416,14 @@ export default function TrackerLeafletMap({
         </>
       ) : null}
 
-      {entries.map(([deviceId, loc], idx) => {
+      {entries.map(([deviceId, loc]) => {
         if (!Number.isFinite(loc?.lat) || !Number.isFinite(loc?.lng)) return null;
         const selectedMarker = deviceId === selectedDeviceId;
         const online = isOnlineFromTimestamp(loc?.timestamp || loc?.lastSeen || loc?.last_seen);
         const signalInfo = getSignalInfo(loc?.signalStrength ?? loc?.signal ?? loc?.signal_strength);
         const displayName = loc?.deviceName || loc?.name || deviceId;
         const batteryColor = getBatteryColor(loc.battery);
-        const baseColor = batteryColor ?? ["#2563eb", "#16a34a", "#f59e0b", "#9333ea"][idx % 4];
-        const color = online ? (selectedMarker ? "#ef4444" : baseColor) : "#9ca3af";
+        const color = markerColorByDevice[deviceId] ?? "#9ca3af";
 
         return (
           <Marker
