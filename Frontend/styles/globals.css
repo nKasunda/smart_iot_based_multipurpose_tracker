@@ -113,6 +113,12 @@ select {
   color: #000000;
 }
 
+.auth-input {
+  min-height: 45px;
+  line-height: 1.25 !important;
+  overflow: visible;
+}
+
 button {
   min-width: 0;
 }

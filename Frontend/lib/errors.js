@@ -4,6 +4,14 @@ export function friendlyError(error, fallback = "Something went wrong. Please tr
   const text = String(raw).trim();
   const lower = text.toLowerCase();
 
+  if (error?.code === "ECONNABORTED" || lower.includes("timeout")) {
+    return "The request took too long. Check your connection and try again. If this happened while creating an account, the email service may need attention.";
+  }
+
+  if (!status && lower.includes("network")) {
+    return "Could not reach the server. Check your connection and try again.";
+  }
+
   if (typeof navigator !== "undefined" && !navigator.onLine) {
     return "You appear to be offline. Check your internet connection and try again.";
   }
@@ -36,9 +44,19 @@ export function friendlyError(error, fallback = "Something went wrong. Please tr
   }
 
   if (status === 409) {
+    if (lower.includes("pending verification")) {
+      return "This email is waiting for verification. Enter the code already sent, or request a new code.";
+    }
     if (lower.includes("email")) return "That email is already registered. Try signing in instead.";
     if (lower.includes("device")) return text || "That tracker is already claimed or already exists.";
     return text || "This conflicts with an existing record.";
+  }
+
+  if (status === 503) {
+    if (lower.includes("verification code") || lower.includes("email")) {
+      return "We could not send the verification code right now. Please try again shortly or ask the administrator to check the email settings.";
+    }
+    return "The service is temporarily unavailable. Please try again shortly.";
   }
 
   if (status === 429) {

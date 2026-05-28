@@ -54,6 +54,13 @@ function RegisterForm() {
       });
     } catch (error) {
       console.error("Register error:", error.message);
+      if (error?.response?.data?.pendingVerification) {
+        router.push({
+          pathname: "/verify-email",
+          query: { email: error.response.data.email || email },
+        });
+        return;
+      }
       setError(friendlyError(error, "Registration failed. Check your details and try again."));
     } finally {
       setLoading(false);

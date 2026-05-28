@@ -142,12 +142,12 @@ function SignInForm() {
             {error}
             {String(error).toLowerCase().includes("verify") ? (
               <div style={{ marginTop: 8, lineHeight: 1.5 }}>
-                Open the verification email sent to your inbox, or{" "}
+                Enter the verification code sent to your inbox, or{" "}
                 <Link
                   href={`/verify-email?email=${encodeURIComponent(email || "")}`}
                   style={{ color: "#000080", fontWeight: 800 }}
                 >
-                  request a new verification link
+                  request a new code
                 </Link>
                 .
               </div>

@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const https = require('https');
 const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
-const { User } = require('../models');
+const { sequelize, User } = require('../models');
 const { sendPasswordResetEmail, sendVerificationEmail } = require('../services/mail');
 
 let firebaseCertCache = { expiresAt: 0, certs: null };
@@ -183,6 +183,8 @@ async function verifyFirebaseIdToken(idToken) {
 }
 
 exports.register = async (req, res) => {
+  let pendingUser = null;
+
   try {
     const { name, password } = req.body || {};
     const email = String(req.body?.email || '').trim().toLowerCase();
@@ -195,34 +197,58 @@ exports.register = async (req, res) => {
 
     const existing = await User.findOne({ where: { email } });
     if (existing) {
-      return res.status(409).json({ error: 'That email is already registered. Try signing in instead.' });
+      if (existing.emailVerified) {
+        return res.status(409).json({ error: 'That email is already registered. Try signing in instead.' });
+      }
+
+      return res.status(409).json({
+        error: 'This email already has a pending verification. Open the verification page and request a new code.',
+        email,
+        pendingVerification: true,
+      });
     }
 
     const passwordHash = await bcrypt.hash(String(password), 10);
     const role = 'user';
     const verificationToken = makeVerificationCode();
     const verificationExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
-    const user = await User.create({
-      name: name || null,
-      email,
-      password: passwordHash,
-      role,
-      emailVerified: false,
-      verificationToken,
-      verificationExpiresAt,
-      authProvider: 'password',
-    });
+    pendingUser = await sequelize.transaction((transaction) => User.create({
+        name: name || null,
+        email,
+        password: passwordHash,
+        role,
+        emailVerified: false,
+        verificationToken,
+        verificationExpiresAt,
+        authProvider: 'password',
+      },
+      { transaction }
+    ));
 
-    const delivery = await deliverVerificationEmail(req, user);
-    return res.json({
-      message: delivery.emailSent
-        ? 'Account created. Enter the verification code sent to your email.'
-        : 'Account created, but email delivery is not configured. Ask the administrator to configure SMTP, then resend verification.',
-      emailSent: delivery.emailSent,
+    const delivery = await deliverVerificationEmail(req, pendingUser);
+
+    if (!delivery.emailSent) {
+      await pendingUser.destroy();
+      pendingUser = null;
+      return res.status(503).json({
+        error: 'We could not send the verification code right now. Check the email service settings and try again.',
+        emailSent: false,
+      });
+    }
+
+    return res.status(201).json({
+      message: 'Account created. Enter the verification code sent to your email.',
+      emailSent: true,
       email,
-      user: publicUser(user)
     });
   } catch (err) {
+    if (pendingUser) {
+      try {
+        await pendingUser.destroy();
+      } catch {
+        // best-effort cleanup
+      }
+    }
     return res.status(500).json({ error: 'Could not create the account right now. Please try again.' });
   }
 };
@@ -366,7 +392,8 @@ exports.verifyEmail = async (req, res) => {
       user: publicUser(user),
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error('verifyEmail error:', err);
+    return res.status(500).json({ error: 'Could not verify the code right now. Please try again shortly.' });
   }
 };
 
@@ -392,7 +419,8 @@ exports.resendVerification = async (req, res) => {
 
     return res.json({ message: 'If that email needs verification, a new verification code will be sent.' });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error('resendVerification error:', err);
+    return res.status(500).json({ error: 'Could not send a new verification code right now. Please try again shortly.' });
   }
 };
 
@@ -423,7 +451,8 @@ exports.forgotPassword = async (req, res) => {
       message: "If an account exists for that email, reset instructions will be sent.",
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error('forgotPassword error:', err);
+    return res.status(500).json({ error: 'Could not process the password reset request right now. Please try again shortly.' });
   }
 };
 
@@ -450,7 +479,8 @@ exports.resetPassword = async (req, res) => {
 
     return res.json({ message: 'Password reset. You can now sign in with your new password.' });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error('resetPassword error:', err);
+    return res.status(500).json({ error: 'Could not reset the password right now. Please try again shortly.' });
   }
 };
 
