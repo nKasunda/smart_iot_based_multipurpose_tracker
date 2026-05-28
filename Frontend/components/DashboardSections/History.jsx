@@ -67,7 +67,7 @@ export default function History({ devices, latestByDevice, selectedDeviceId, set
           Filters & Controls
         </div>
 
-        <div style={{
+        <div className="responsive-history-grid" style={{
           padding: 16, display: "grid",
           gridTemplateColumns: "1.2fr 1fr 1fr 120px 100px",
           gap: 12, alignItems: "end",
@@ -176,7 +176,7 @@ export default function History({ devices, latestByDevice, selectedDeviceId, set
       </div>
 
       {/* Map */}
-      <div style={{
+      <div className="responsive-map-panel responsive-map-panel--history" style={{
         height: "72vh", borderRadius: 16, overflow: "hidden",
         background: "#ffffff", boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
       }}>

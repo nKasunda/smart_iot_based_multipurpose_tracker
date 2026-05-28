@@ -3,6 +3,7 @@ import axios from "axios";
 import { FiTrash2, FiEdit2 } from "react-icons/fi";
 import { API_BASE } from "../../lib/config";
 import { getToken } from "../../lib/tokenStorage";
+import { getDeviceIntegration } from "../../lib/api";
 import { formatDateTime, useSettings } from "../../context/SettingsContext";
 
 function isOnline(lastSeen) {
@@ -20,6 +21,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
   const [searchTerm, setSearchTerm] = useState("");
   const [editingDeviceId, setEditingDeviceId] = useState(null);
   const [editFields, setEditFields] = useState({ device_uid: "", imei: "", ownerEmail: "" });
+  const [integration, setIntegration] = useState(null);
 
   // Admin provisioning
   const [adminDeviceId, setAdminDeviceId] = useState("");
@@ -211,6 +213,19 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
     });
   };
 
+  const handleShowIntegration = async (deviceId) => {
+    setLoading(true);
+    setError("");
+    try {
+      const data = await getDeviceIntegration(deviceId);
+      setIntegration(data);
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to load tracker API details");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCancelEdit = () => {
     setEditingDeviceId(null);
     setEditFields({ device_uid: "", imei: "", ownerEmail: "" });
@@ -262,6 +277,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
             Provision New Device
           </div>
           <form
+            className="responsive-form-grid"
             onSubmit={handleAdminProvision}
             style={{
               padding: 16,
@@ -345,6 +361,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
             Claim Device
           </div>
           <form
+            className="responsive-form-grid"
             onSubmit={handleUserClaim}
             style={{
               padding: 16,
@@ -418,6 +435,38 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
       )}
 
       {/* DEVICE LIST */}
+      {integration ? (
+        <div style={panelStyle}>
+          <div style={{ ...panelHeadStyle, display: "flex", justifyContent: "space-between", gap: 12 }}>
+            <span>Tracker API: {integration.device_id}</span>
+            <button
+              type="button"
+              onClick={() => setIntegration(null)}
+              style={{
+                border: "1px solid var(--border)",
+                background: "var(--surface-strong)",
+                color: "var(--text)",
+                borderRadius: 8,
+                padding: "6px 10px",
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: 800,
+              }}
+            >
+              Close
+            </button>
+          </div>
+          <div style={{ padding: 16, display: "grid", gap: 12 }}>
+            <div style={{ fontSize: 13, color: "var(--text-soft)" }}>
+              Use this endpoint when integrating your tracker with another platform. Plain JSON works for testing; encrypted payloads use UTF-8 JSON with AES-256-GCM.
+            </div>
+            <pre className="api-panel-code" style={{ margin: 0, padding: 14, borderRadius: 10, background: "var(--surface-muted)", color: "var(--text)", fontSize: 12 }}>
+{JSON.stringify(integration, null, 2)}
+            </pre>
+          </div>
+        </div>
+      ) : null}
+
       <div
         style={{
           ...panelStyle,
@@ -456,13 +505,14 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
             />
           </div>
         </div>
-        <div
+        <div className="responsive-table-scroll"
           style={{
             maxHeight: "calc(100vh - 300px)",
             overflowY: "auto",
           }}
         >
           <div
+            className="responsive-table-grid"
             style={{
               display: "grid",
               gridTemplateColumns: isAdmin
@@ -498,13 +548,14 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
             const isEditing = editingDeviceId === d.device_uid;
             return (
               <div
+                className="responsive-table-grid"
                 key={d.device_uid}
                 onClick={() => setSelectedDeviceId?.(d.device_uid)}
                 style={{
                   display: "grid",
                   gridTemplateColumns: isAdmin
-                    ? "1.2fr 1.2fr 0.9fr 0.9fr 1.3fr 0.7fr 0.7fr 1.2fr 100px"
-                    : "1.4fr 1.2fr 0.8fr 0.8fr 1.2fr 100px",
+                    ? "1.2fr 1.2fr 0.9fr 0.9fr 1.3fr 0.7fr 0.7fr 1.2fr 170px"
+                    : "1.4fr 1.2fr 0.8fr 0.8fr 1.2fr 160px",
                   gap: 8,
                   padding: "12px 16px",
                   borderTop: "1px solid var(--border)",
@@ -701,6 +752,23 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
                           <FiEdit2 size={16} />
                         </button>
                         <button
+                          onClick={() => handleShowIntegration(d.device_uid)}
+                          disabled={loading}
+                          style={{
+                            padding: "8px 10px",
+                            borderRadius: "8px",
+                            border: "1px solid var(--border)",
+                            background: "var(--surface-strong)",
+                            color: "var(--text)",
+                            cursor: loading ? "not-allowed" : "pointer",
+                            fontWeight: 800,
+                            fontSize: 11,
+                            opacity: loading ? 0.6 : 1,
+                          }}
+                        >
+                          API
+                        </button>
+                        <button
                           onClick={() => handleAdminDelete(d.device_uid)}
                           disabled={loading}
                           style={{
@@ -747,6 +815,23 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
                       }}
                     >
                       Unclaim
+                    </button>
+                    <button
+                      onClick={() => handleShowIntegration(d.device_uid)}
+                      disabled={loading}
+                      style={{
+                        padding: "6px 10px",
+                        borderRadius: "6px",
+                        border: "1px solid var(--border)",
+                        background: "var(--surface-strong)",
+                        color: "var(--text)",
+                        cursor: loading ? "not-allowed" : "pointer",
+                        fontWeight: 800,
+                        fontSize: "12px",
+                        opacity: loading ? 0.6 : 1,
+                      }}
+                    >
+                      API
                     </button>
                   )}
                 </div>

@@ -104,13 +104,13 @@ void sendSMS(String message) {
   A9G.print(phoneNumber);
   A9G.println("\"");
 
-  delay(1000);
+  delay(10000);
 
   A9G.print(message);
-  delay(500);
+  delay(5000);
 
   A9G.write(26);
-  delay(5000);
+  delay(50000);
 
   Serial.println("===== SMS SENT =====");
   Serial.println(message);
@@ -123,7 +123,7 @@ void setup() {
   Serial.begin(115200);
   A9G.begin(115200, SERIAL_8N1, 16, 17);
 
-  delay(3000);
+  delay(30000);
 
   Serial.println("Initializing A9G...");
 

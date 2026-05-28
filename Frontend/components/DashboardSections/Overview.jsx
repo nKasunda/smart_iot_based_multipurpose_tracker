@@ -100,12 +100,11 @@ export default function Overview({
       }}
     >
       {/* Stats Cards */}
-      <div style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
+      <div className="responsive-stat-grid" style={{ gap: "16px" }}>
         {statsCards.map((stat) => (
           <div
             key={stat.label}
             style={{
-              flex: "1 1 170px",
               minHeight: "140px",
               display: "flex",
               flexDirection: "column",
@@ -155,6 +154,7 @@ export default function Overview({
 
       {/* Map Section */}
       <div
+        className="responsive-map-panel"
         style={{
           width: "100%",
           height: "540px",
@@ -210,6 +210,7 @@ export default function Overview({
               const c = typeColor(a.type);
               return (
                 <div
+                  className="responsive-alert-item"
                   key={`${a.type}:${a.device_uid}:${idx}`}
                   style={{
                     display: "flex",

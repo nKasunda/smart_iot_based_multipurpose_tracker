@@ -1453,16 +1453,27 @@ select {
 .dashboard-app-shell {
   background: var(--app-bg);
   color: var(--text);
+  display: flex;
   height: 100svh !important;
   overflow: hidden;
 }
 
 .dashboard-workspace {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
+  min-height: 0;
   height: 100svh !important;
+  overflow: hidden;
 }
 
 .dashboard-main-scroll {
+  flex: 1 1 auto;
+  padding: clamp(12px, 2.2vw, 24px);
+  background: var(--app-bg);
+  overflow-y: auto;
+  min-height: 0;
   min-width: 0;
   width: 100%;
   overscroll-behavior: contain;
@@ -1471,6 +1482,73 @@ select {
 .side-menu {
   height: 100svh !important;
   max-height: 100svh !important;
+}
+
+.dashboard-topbar {
+  min-height: 70px;
+}
+
+.dashboard-topbar-actions {
+  justify-content: flex-end;
+}
+
+.dashboard-live-badge {
+  flex: 0 0 auto;
+  min-width: 96px;
+  justify-content: center;
+}
+
+.dashboard-server-clock {
+  flex: 0 0 auto;
+  min-width: 118px;
+  justify-content: flex-start;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  white-space: nowrap;
+}
+
+.responsive-stat-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.responsive-map-panel {
+  min-height: 340px;
+  height: clamp(360px, 58svh, 540px) !important;
+}
+
+.responsive-map-panel--live,
+.responsive-map-panel--history {
+  height: clamp(380px, 68svh, 720px) !important;
+}
+
+.responsive-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)) !important;
+}
+
+.responsive-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.responsive-table-grid {
+  min-width: 860px;
+}
+
+.responsive-history-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.2fr) repeat(2, minmax(170px, 1fr)) 120px 52px !important;
+}
+
+.api-panel-code {
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.responsive-alert-item {
+  min-width: 0;
 }
 
 :root[data-theme="dark"] .dashboard-main-scroll [style*="background: #ffffff"],
@@ -1554,7 +1632,11 @@ select {
 
   .side-menu.is-closed {
     width: 58px !important;
-    flex: 0 0 58px;
+    flex: 0 0 58px !important;
+  }
+
+  .dashboard-topbar {
+    align-items: flex-start !important;
   }
 }
 
@@ -1575,7 +1657,8 @@ select {
   }
 
   .dashboard-main-scroll [style*="grid-template-columns: 1.2fr 1fr 1fr 120px 100px"],
-  .dashboard-main-scroll [style*="gridTemplateColumns: 1.2fr 1fr 1fr 120px 100px"] {
+  .dashboard-main-scroll [style*="gridTemplateColumns: 1.2fr 1fr 1fr 120px 100px"],
+  .responsive-history-grid {
     grid-template-columns: 1fr !important;
   }
 
@@ -1607,6 +1690,40 @@ select {
   .dashboard-main-scroll [style*="height: 72vh"] {
     height: clamp(360px, 62svh, 520px) !important;
   }
+
+  .dashboard-topbar {
+    padding: 12px 14px !important;
+    gap: 12px !important;
+  }
+
+  .dashboard-topbar-title {
+    width: 100%;
+    font-size: 16px !important;
+  }
+
+  .dashboard-topbar-actions {
+    width: 100%;
+    justify-content: space-between !important;
+    gap: 8px !important;
+  }
+
+  .dashboard-profile-trigger > div:last-child {
+    display: none !important;
+  }
+
+  .responsive-table-grid {
+    min-width: 760px;
+  }
+
+  .responsive-alert-item {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+  }
+
+  .responsive-alert-item > div:last-child {
+    width: 100%;
+    justify-content: space-between;
+  }
 }
 
 @media (max-width: 520px) {
@@ -1616,7 +1733,27 @@ select {
 
   .side-menu.is-closed {
     width: 52px !important;
-    flex-basis: 52px;
+    flex-basis: 52px !important;
+  }
+
+  .dashboard-server-clock {
+    min-width: 104px;
+    font-size: 12px;
+  }
+
+  .dashboard-live-badge {
+    min-width: 82px;
+  }
+
+  .responsive-stat-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .responsive-map-panel,
+  .responsive-map-panel--live,
+  .responsive-map-panel--history {
+    border-radius: 10px !important;
+    height: clamp(320px, 62svh, 460px) !important;
   }
 }
 

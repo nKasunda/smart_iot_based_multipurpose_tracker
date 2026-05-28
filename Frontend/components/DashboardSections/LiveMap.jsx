@@ -61,8 +61,10 @@ export default function LiveMap({ latestByDevice, selectedDeviceId, setSelectedD
       </div>
 
       <div
+        className="responsive-map-panel responsive-map-panel--live"
         style={{
           flex: 1,
+          minHeight: 380,
           borderRadius: 16,
           overflow: "hidden",
           background: "#ffffff",

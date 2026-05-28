@@ -64,6 +64,42 @@ This section documents the hardware development of the IoT-based multipurpose tr
 
 **Pending testing and implementation**
 
+### [5.5] Backend Ingest API Contract
+
+The backend accepts tracker updates at:
+
+```text
+POST /api/tracker/ingest
+Content-Type: application/json; charset=utf-8
+```
+
+Plain JSON is still supported for testing and production fallback:
+
+```json
+{
+  "imei": "123456789012345",
+  "lat": -15.387600,
+  "lng": 35.336700,
+  "battery": 87,
+  "signal": 22
+}
+```
+
+Encrypted payloads are UTF-8 JSON encrypted with AES-256-GCM, then base64 encoded in an envelope:
+
+```json
+{
+  "encryption": "aes-256-gcm",
+  "encoding": "utf-8",
+  "kid": "TRK-001",
+  "iv": "base64-12-byte-nonce",
+  "tag": "base64-16-byte-auth-tag",
+  "payload": "base64-encrypted-utf8-json"
+}
+```
+
+For ESP32 firmware, keep the coordinate code building the same JSON first, then encrypt that JSON string before sending it. The backend decrypts first and then runs the normal latitude, longitude, battery, and signal parsing. If the device cannot encrypt yet, send the plain JSON above; the ingest endpoint accepts both formats.
+
 ---
 
 ## [6] GPS FUNCTIONALITY
@@ -175,4 +211,3 @@ The diagram below shows the hardware connections between the ESP32, A9G module, 
 ## [13] AUTHOR NOTES
 
 This document will be continuously updated as hardware development progresses and issues are resolved.
-

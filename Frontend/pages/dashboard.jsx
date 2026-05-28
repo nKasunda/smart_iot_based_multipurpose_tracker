@@ -284,7 +284,7 @@ export default function DashboardPage() {
   if (!auth.isAuthed) return null;
 
   return (
-    <div className="dashboard-app-shell" style={{ display: "flex", height: "100dvh", overflow: "hidden" }}>
+    <div className="dashboard-app-shell">
 
       {/* ── Sidebar ───────────────────────────────────────── */}
       <SideMenu
@@ -308,7 +308,7 @@ export default function DashboardPage() {
       />
 
       {/* ── Main area ─────────────────────────────────────── */}
-      <div className="dashboard-workspace" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0, height: "100dvh", overflow: "hidden" }}>
+      <div className="dashboard-workspace">
 
         <DashboardHeader
           user={auth.user}
@@ -321,13 +321,7 @@ export default function DashboardPage() {
           }}
         />
 
-        <main className="dashboard-main-scroll" style={{
-          flex: 1,
-          padding: "24px",
-          backgroundColor: "var(--app-bg)",
-          overflowY: "auto",
-          minHeight: 0,
-        }}>
+        <main className="dashboard-main-scroll">
           <ActiveComponent
             user={auth.user}
             devices={filteredDevices}

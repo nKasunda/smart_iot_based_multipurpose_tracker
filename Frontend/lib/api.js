@@ -78,6 +78,16 @@ export async function getAlerts() {
   return res.data;
 }
 
+export async function getServerTime() {
+  const res = await api.get("/api/tracker/time");
+  return res.data;
+}
+
+export async function getDeviceIntegration(deviceId) {
+  const res = await api.get(`/api/tracker/devices/${encodeURIComponent(deviceId)}/integration`);
+  return res.data;
+}
+
 export async function updateProfile(payload) {
   const res = await api.patch("/api/user/profile", payload);
   return res.data;

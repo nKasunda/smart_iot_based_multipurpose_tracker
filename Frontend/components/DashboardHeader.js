@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { FiClock, FiLogOut, FiEye, FiEyeOff, FiMonitor, FiMoon, FiSun, FiX } from "react-icons/fi";
 import { useSettings } from "../context/SettingsContext";
 import { useAuth } from "../context/AuthContext";
-import { updatePassword, updateProfile } from "../lib/api";
+import { getServerTime, updatePassword, updateProfile } from "../lib/api";
 
 function getInitials(user) {
   const name = (user?.name || "").trim();
@@ -459,14 +459,38 @@ function DashboardHeader({ user, onLogout, socketConnected, profileOpen, onToggl
   const [time,    setTime]    = useState(null);
   const [mounted, setMounted] = useState(false);
   const avatarRef = useRef(null);
+  const serverOffsetRef = useRef(0);
 
   const isAdmin = user?.role === "admin";
   const displayName  = user?.name || user?.email || "User";
 
   useEffect(() => {
     setMounted(true);
-    const interval = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(interval);
+    let alive = true;
+    const syncServerTime = async () => {
+      try {
+        const startedAt = Date.now();
+        const data = await getServerTime();
+        const serverTime = new Date(data?.iso).getTime();
+        if (!alive || !Number.isFinite(serverTime)) return;
+        const roundTrip = Date.now() - startedAt;
+        const nextOffset = serverTime + roundTrip / 2 - Date.now();
+        serverOffsetRef.current = nextOffset;
+      } catch {
+        if (alive) {
+          serverOffsetRef.current = 0;
+        }
+      }
+    };
+    syncServerTime();
+    const syncInterval = setInterval(syncServerTime, 5 * 60 * 1000);
+    const interval = setInterval(() => setTime(new Date(Date.now() + serverOffsetRef.current)), 1000);
+    setTime(new Date(Date.now() + serverOffsetRef.current));
+    return () => {
+      alive = false;
+      clearInterval(interval);
+      clearInterval(syncInterval);
+    };
   }, []);
 
   const live        = socketConnected !== undefined ? !!socketConnected : true;
@@ -475,24 +499,24 @@ function DashboardHeader({ user, onLogout, socketConnected, profileOpen, onToggl
   if (!mounted) return null;
 
   return (
-    <div style={{
+    <div className="dashboard-topbar" style={{
       display: "flex", justifyContent: "space-between", alignItems: "center",
       gap: 16, flexWrap: "wrap",
       padding: "16px 24px", borderBottom: "1px solid var(--border)",
       backgroundColor: "var(--surface-strong)", position: "relative", zIndex: 100,
     }}>
 
-      <h1 style={{
+      <h1 className="dashboard-topbar-title" style={{
         margin: 0, fontSize: 18, color: "var(--text)",
         fontWeight: 900, lineHeight: 1.15,
       }}>
         Asset Tracking Dashboard
       </h1>
 
-      <div style={{ display: "flex", alignItems: "center", gap: "clamp(10px, 2vw, 20px)", flexWrap: "wrap" }}>
+      <div className="dashboard-topbar-actions" style={{ display: "flex", alignItems: "center", gap: "clamp(10px, 2vw, 20px)", flexWrap: "wrap" }}>
 
         {/* LIVE badge */}
-        <div style={{
+        <div className="dashboard-live-badge" style={{
           display: "flex", alignItems: "center", gap: "6px",
           padding: "6px 10px", border: "1px solid var(--border)",
           borderRadius: "8px", backgroundColor: "var(--surface-muted)",
@@ -504,7 +528,7 @@ function DashboardHeader({ user, onLogout, socketConnected, profileOpen, onToggl
         </div>
 
         {/* Clock */}
-        <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--muted)" }}>
+        <div className="dashboard-server-clock" style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--muted)" }}>
           <FiClock />
           <span>{formatTime(time, clockFormat)}</span>
         </div>
@@ -512,8 +536,9 @@ function DashboardHeader({ user, onLogout, socketConnected, profileOpen, onToggl
         {/* Avatar */}
         {user && (
           <div ref={avatarRef} style={{ position: "relative" }}>
-            <div
-              onClick={onToggleProfile}
+              <div
+                onClick={onToggleProfile}
+              className="dashboard-profile-trigger"
               style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}
               title="Profile & settings"
             >

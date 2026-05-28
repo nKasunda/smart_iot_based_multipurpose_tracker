@@ -102,26 +102,32 @@ export default function Alerts({ alerts, onRefresh }) {
           ) : null}
         </div>
 
-        <div
+        <div className="responsive-table-scroll"
           style={{
-            display: "grid",
-            gridTemplateColumns: "1.2fr 1.2fr 0.9fr 0.8fr 1.4fr",
-            gap: 10,
-            padding: "12px 16px",
-            fontWeight: 800,
-            color: "#475569",
-            fontSize: 11,
             background: "#f3f4f6",
           }}
         >
-          <span>Device ID</span>
-          <span>IMEI</span>
-          <span style={{ justifySelf: "center" }}>Type</span>
-          <span>Value</span>
-          <span>Last Seen</span>
+          <div
+            className="responsive-table-grid"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1.2fr 1.2fr 0.9fr 0.8fr 1.4fr",
+              gap: 10,
+              padding: "12px 16px",
+              fontWeight: 800,
+              color: "#475569",
+              fontSize: 11,
+            }}
+          >
+            <span>Device ID</span>
+            <span>IMEI</span>
+            <span style={{ justifySelf: "center" }}>Type</span>
+            <span>Value</span>
+            <span>Last Seen</span>
+          </div>
         </div>
 
-        <div style={{ maxHeight: "calc(100vh - 240px)", overflowY: "auto" }}>
+        <div className="responsive-table-scroll" style={{ maxHeight: "calc(100vh - 240px)", overflowY: "auto" }}>
           {items.length === 0 ? (
             <div style={{ padding: 16, color: "#6b7280", fontSize: 13 }}>No alerts right now</div>
           ) : null}
@@ -129,6 +135,7 @@ export default function Alerts({ alerts, onRefresh }) {
             const c = typeColor(a.type);
             return (
               <div
+                className="responsive-table-grid"
                 key={`${a.type}:${a.device_uid}:${idx}`}
                 style={{
                   display: "grid",

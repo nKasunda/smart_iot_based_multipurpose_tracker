@@ -1,5 +1,6 @@
 const { Tracker, Location, User } = require("../models");
 const { Op } = require("sequelize");
+const crypto = require("crypto");
 
 const buildAccessWhere = (user) => {
   if (!user || user.role === "admin") return {};
@@ -58,6 +59,72 @@ const cleanImei = (value) => {
     .trim();
 
   return text || null;
+};
+
+const makeSecretKey = (value) => {
+  if (!value) return null;
+  const text = String(value).trim();
+  if (!text) return null;
+
+  for (const encoding of ["base64", "hex"]) {
+    try {
+      const decoded = Buffer.from(text, encoding);
+      if (decoded.length === 32) return decoded;
+    } catch {
+      // try next format
+    }
+  }
+
+  return crypto.createHash("sha256").update(text, "utf8").digest();
+};
+
+const decryptAesGcmPayload = (envelope, secret) => {
+  const key = makeSecretKey(secret);
+  if (!key) return null;
+
+  const iv = Buffer.from(envelope.iv || envelope.nonce || "", "base64");
+  const tag = Buffer.from(envelope.tag || envelope.authTag || "", "base64");
+  const cipherText = Buffer.from(envelope.payload || envelope.ciphertext || envelope.data || "", "base64");
+
+  if (!iv.length || !tag.length || !cipherText.length) return null;
+
+  const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+  decipher.setAuthTag(tag);
+  const decrypted = Buffer.concat([decipher.update(cipherText), decipher.final()]);
+  return decrypted.toString(envelope.encoding || "utf8");
+};
+
+const maybeDecryptPayload = async (body) => {
+  const envelope = typeof body === "string" ? normalizePayload(body) : body;
+  if (!envelope || typeof envelope !== "object") return body;
+
+  const encryption = String(envelope.encryption || envelope.alg || "").toLowerCase();
+  const isEncrypted =
+    encryption === "aes-256-gcm" ||
+    encryption === "a256gcm" ||
+    envelope.encrypted === true;
+
+  if (!isEncrypted) return body;
+
+  const keyCandidates = [];
+  const kid = envelope.kid || envelope.device_id || envelope.device_uid || envelope.imei;
+  const tracker = kid ? await resolveTrackerByAnyId(kid) : null;
+  if (tracker?.ingestToken) keyCandidates.push(tracker.ingestToken);
+  if (process.env.TRACKER_INGEST_ENCRYPTION_KEY) {
+    keyCandidates.push(process.env.TRACKER_INGEST_ENCRYPTION_KEY);
+  }
+
+  for (const secret of keyCandidates) {
+    try {
+      const decrypted = decryptAesGcmPayload(envelope, secret);
+      const parsed = normalizePayload(decrypted);
+      if (parsed) return parsed;
+    } catch {
+      // keep trying supported keys
+    }
+  }
+
+  return null;
 };
 
 const extractImeiFromPayload = (payload) => {
@@ -224,10 +291,11 @@ exports.ingestSMS = async (req, res) => {
   try {
     console.log("Incoming payload:", req.body);
 
-    const parsed = normalizePayload(req.body);
+    const decryptedOrRaw = await maybeDecryptPayload(req.body);
+    const parsed = normalizePayload(decryptedOrRaw);
 
     if (!parsed) {
-      return res.status(400).json({ error: "Invalid payload format" });
+      return res.status(400).json({ error: "Invalid payload format or encryption key" });
     }
 
     console.log("Normalized payload:", parsed);
@@ -572,6 +640,65 @@ exports.devices = async (req, res) => {
   }
 };
 
+exports.serverTime = (req, res) => {
+  const now = new Date();
+  return res.json({
+    iso: now.toISOString(),
+    epochMs: now.getTime(),
+    timezone: "UTC",
+  });
+};
+
+exports.deviceIntegration = async (req, res) => {
+  try {
+    const tracker = await resolveTrackerByAnyId(req.params.device_id);
+    if (!tracker) return res.status(404).json({ error: "Device not found" });
+
+    if (req.user?.role !== "admin") {
+      const allowed = tracker.userId === req.user?.id;
+      if (!allowed) return res.status(403).json({ error: "Forbidden" });
+    }
+
+    if (!tracker.ingestToken) {
+      tracker.ingestToken = crypto.randomUUID();
+      await tracker.save();
+    }
+
+    const ingestUrl = `${req.protocol}://${req.get("host")}/api/tracker/ingest`;
+    const plainJson = {
+      imei: tracker.imei,
+      lat: -15.3876,
+      lng: 35.3367,
+      battery: 87,
+      signal: 22,
+    };
+
+    return res.json({
+      device_id: tracker.device_uid,
+      imei: tracker.imei,
+      ingestUrl,
+      method: "POST",
+      contentType: "application/json; charset=utf-8",
+      auth: {
+        token: tracker.ingestToken,
+        note: "Smartphone trackers must include token. Hardware trackers may also use this token as the AES key for encrypted payloads.",
+      },
+      plainJson,
+      encryptedEnvelope: {
+        encryption: "aes-256-gcm",
+        encoding: "utf-8",
+        kid: tracker.device_uid,
+        iv: "base64-12-byte-nonce",
+        tag: "base64-16-byte-auth-tag",
+        payload: "base64-encrypted-utf8-json",
+      },
+    });
+  } catch (err) {
+    console.error("deviceIntegration error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
 /**
  * Register a device (admin only)
  */
@@ -620,8 +747,8 @@ exports.createSmartphoneTracker = async (req, res) => {
     const name = req.body?.name ? String(req.body.name).trim() : "My Smartphone";
 
     // Generate virtual IMEI and token
-    const virtualImei = `APP-${require('crypto').randomUUID()}`;
-    const ingestToken = require('crypto').randomUUID();
+    const virtualImei = `APP-${crypto.randomUUID()}`;
+    const ingestToken = crypto.randomUUID();
 
     // Create device_uid
     const device_uid = `PHONE-${Date.now()}`;
