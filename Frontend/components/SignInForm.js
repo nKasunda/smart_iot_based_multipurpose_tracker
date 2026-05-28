@@ -142,14 +142,11 @@ function SignInForm() {
             {error}
             {String(error).toLowerCase().includes("verify") ? (
               <div style={{ marginTop: 8, lineHeight: 1.5 }}>
-                Enter the verification code sent to your inbox, or{" "}
-                <Link
-                  href={`/verify-email?email=${encodeURIComponent(email || "")}`}
-                  style={{ color: "#000080", fontWeight: 800 }}
-                >
-                  request a new code
-                </Link>
-                .
+                Contact the administrator at{" "}
+                <a href="mailto:kasundanelson@gmail.com" style={{ color: "#000080", fontWeight: 800 }}>
+                  kasundanelson@gmail.com
+                </a>
+                {" "}for account access.
               </div>
             ) : null}
           </div>
@@ -311,24 +308,6 @@ function SignInForm() {
         <GoogleLogo />
         Sign in with Google
       </button>
-
-      {/* Register Link */}
-      <div style={{ textAlign: "center", marginTop: "20px" }}>
-        <span style={{ color: "black", fontSize: "14px" }}>
-          Don't have an account?{" "}
-          <Link
-            href="/register"
-            style={{
-              color: "#000080",
-              textDecoration: "none",
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            Sign up here
-          </Link>
-        </span>
-      </div>
 
       <style jsx>{`
         input::placeholder {

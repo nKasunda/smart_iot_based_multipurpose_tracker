@@ -54,7 +54,7 @@ export function friendlyError(error, fallback = "Something went wrong. Please tr
 
   if (status === 503) {
     if (lower.includes("verification code") || lower.includes("email")) {
-      return "We could not send the verification code right now. Please try again shortly or ask the administrator to check the email settings.";
+      return "Account access is managed by the administrator. Contact kasundanelson@gmail.com for help.";
     }
     return "The service is temporarily unavailable. Please try again shortly.";
   }

@@ -335,26 +335,18 @@ exports.googleSignIn = async (req, res) => {
     });
 
     if (!user) {
-      user = await User.create({
-        name: decoded.name || email.split('@')[0],
-        email,
-        password: null,
-        role: 'user',
-        emailVerified: true,
-        verificationToken: null,
-        verificationExpiresAt: null,
-        authProvider: 'google',
-        googleSub: decoded.sub,
+      return res.status(403).json({
+        error: 'This Google account is not enabled for TrackA. Contact the administrator at kasundanelson@gmail.com.',
       });
-    } else {
-      user.emailVerified = true;
-      user.verificationToken = null;
-      user.verificationExpiresAt = null;
-      user.googleSub = user.googleSub || decoded.sub;
-      user.authProvider = user.authProvider === 'password' ? 'password_google' : (user.authProvider || 'google');
-      if (!user.name && decoded.name) user.name = decoded.name;
-      await user.save();
     }
+
+    user.emailVerified = true;
+    user.verificationToken = null;
+    user.verificationExpiresAt = null;
+    user.googleSub = user.googleSub || decoded.sub;
+    user.authProvider = user.authProvider === 'password' ? 'password_google' : (user.authProvider || 'google');
+    if (!user.name && decoded.name) user.name = decoded.name;
+    await user.save();
 
     const token = signToken(user);
     return res.json({ token, user: publicUser(user) });
