@@ -17,6 +17,7 @@ import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { SOCKET_URL } from "../lib/config";
 import { getAlerts, getDevices, getLatest, getStats } from "../lib/api";
+import { friendlyError } from "../lib/errors";
 import { getToken } from "../lib/tokenStorage";
 
 const sectionComponents = {
@@ -79,6 +80,7 @@ export default function DashboardPage() {
   const [latest,           setLatest]           = useState([]);
   const [stats,            setStats]            = useState(null);
   const [alerts,           setAlerts]           = useState(null);
+  const [loadError,        setLoadError]        = useState("");
   const [socketConnected,  setSocketConnected]  = useState(false);
   const [selectedDeviceId, setSelectedDeviceId] = useState("");
   const [livePaths,        setLivePaths]        = useState({});
@@ -191,16 +193,27 @@ export default function DashboardPage() {
   }, [filteredDevices, selectedDeviceId]);
 
   const refreshAll = async () => {
-    const [d, l, s, a] = await Promise.all([
+    const results = await Promise.allSettled([
       getDevices(),
       getLatest(),
       getStats(),
       getAlerts(),
     ]);
-    setDevices(d  || []);
-    setLatest(l   || []);
-    setStats(s    || null);
-    setAlerts(a   || null);
+
+    const [devicesResult, latestResult, statsResult, alertsResult] = results;
+
+    if (devicesResult.status === "fulfilled") setDevices(devicesResult.value || []);
+    if (latestResult.status === "fulfilled") setLatest(latestResult.value || []);
+    if (statsResult.status === "fulfilled") setStats(statsResult.value || null);
+    if (alertsResult.status === "fulfilled") setAlerts(alertsResult.value || null);
+
+    const failed = results.find((result) => result.status === "rejected");
+    if (failed) {
+      setLoadError(friendlyError(failed.reason, "Could not load some dashboard data from the backend."));
+      throw failed.reason;
+    } else {
+      setLoadError("");
+    }
   };
 
   useEffect(() => {
@@ -310,6 +323,23 @@ export default function DashboardPage() {
         />
 
         <main className="dashboard-main-scroll">
+          {loadError ? (
+            <div
+              role="alert"
+              style={{
+                marginBottom: 16,
+                padding: "12px 14px",
+                borderRadius: 10,
+                border: "1px solid #fecaca",
+                background: "#fef2f2",
+                color: "#991b1b",
+                fontSize: 14,
+                fontWeight: 700,
+              }}
+            >
+              {loadError}
+            </div>
+          ) : null}
           <ActiveComponent
             user={auth.user}
             devices={filteredDevices}

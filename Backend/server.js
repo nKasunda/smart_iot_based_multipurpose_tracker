@@ -145,9 +145,24 @@ app.use("/api/v1", v1Routes);
 app.use("/api/tracker/ingest", limiter);
 app.use("/api/tracker", trackerRoutes);
 
-app.get("/health", (req, res) =>
-  res.status(200).json({ status: "OK", timestamp: new Date() })
-);
+app.get("/health", async (req, res) => {
+  const payload = {
+    status: "OK",
+    timestamp: new Date(),
+    database: "unknown",
+  };
+
+  try {
+    await sequelize.authenticate();
+    payload.database = "connected";
+    return res.status(200).json(payload);
+  } catch (err) {
+    payload.status = "DEGRADED";
+    payload.database = "error";
+    payload.error = process.env.HEALTH_VERBOSE === "true" ? err.message : "Database connection failed";
+    return res.status(503).json(payload);
+  }
+});
 
 const PORT = process.env.PORT || 5000;
 const HOST = process.env.HOST || "0.0.0.0";

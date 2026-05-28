@@ -113,6 +113,23 @@ async function ensureSchema(sequelize) {
         CREATE INDEX IF NOT EXISTS "Locations_timestamp_idx" ON "Locations" ("timestamp");
       END IF;
     END $$;
+    `,
+    `
+    DO $$
+    BEGIN
+      IF to_regclass('public."Alerts"') IS NOT NULL THEN
+        ALTER TABLE "Alerts" ADD COLUMN IF NOT EXISTS "type" VARCHAR;
+        ALTER TABLE "Alerts" ADD COLUMN IF NOT EXISTS "message" TEXT;
+        ALTER TABLE "Alerts" ADD COLUMN IF NOT EXISTS "severity" VARCHAR;
+        ALTER TABLE "Alerts" ADD COLUMN IF NOT EXISTS "isResolved" BOOLEAN DEFAULT false;
+        ALTER TABLE "Alerts" ADD COLUMN IF NOT EXISTS "resolvedAt" TIMESTAMPTZ;
+        ALTER TABLE "Alerts" ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMPTZ DEFAULT NOW();
+        ALTER TABLE "Alerts" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMPTZ DEFAULT NOW();
+
+        CREATE INDEX IF NOT EXISTS "Alerts_tracker_id_idx" ON "Alerts" ("tracker_id");
+        CREATE INDEX IF NOT EXISTS "Alerts_createdAt_idx" ON "Alerts" ("createdAt");
+      END IF;
+    END $$;
     `
   ];
 

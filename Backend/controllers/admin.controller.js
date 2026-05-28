@@ -1,6 +1,6 @@
 // controllers/admin.controller.js
 
-const { Tracker, User } = require("../models");
+const { Location, Tracker, User } = require("../models");
 
 /**
  * Provision a new device into the system
