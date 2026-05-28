@@ -431,9 +431,11 @@ export default function TrackerLeafletMap({
         if (!Number.isFinite(loc?.lat) || !Number.isFinite(loc?.lng)) return null;
         const selectedMarker = deviceId === selectedDeviceId;
         const online = isOnlineFromTimestamp(loc?.timestamp || loc?.lastSeen || loc?.last_seen);
-        const signalInfo = getSignalInfo(loc?.signalStrength ?? loc?.signal ?? loc?.signal_strength);
+        const liveBattery = online ? loc.battery : null;
+        const liveSignal = online ? loc?.signalStrength ?? loc?.signal ?? loc?.signal_strength : null;
+        const signalInfo = getSignalInfo(liveSignal);
         const displayName = loc?.deviceName || loc?.name || deviceId;
-        const batteryColor = getBatteryColor(loc.battery);
+        const batteryColor = getBatteryColor(liveBattery);
         const color = markerColorByDevice[deviceId] ?? "#9ca3af";
 
         return (
@@ -500,7 +502,7 @@ export default function TrackerLeafletMap({
                           color: batteryColor || "#9ca3af",
                         }}
                       >
-                        {loc.battery ?? "—"}%
+                        {liveBattery ?? "—"}%
                       </span>
                     </div>
                   ) : null}

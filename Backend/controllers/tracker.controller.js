@@ -6,6 +6,7 @@ const jwt = require("jsonwebtoken");
 const DEVELOPER_API_AUDIENCE = "tda-v1";
 
 const apiError = (res, status, error, message) => res.status(status).json({ error, message, status });
+const TRACKER_ONLINE_WINDOW_MS = Number(process.env.TRACKER_ONLINE_WINDOW_MS || 2 * 60 * 1000);
 
 function getJwtSecret() {
   const secret = process.env.JWT_SECRET;
@@ -144,16 +145,48 @@ const parseRequiredTimestamp = (value) => {
   return date;
 };
 
+const isTrackerOnline = (lastSeen, now = Date.now()) => {
+  if (!lastSeen) return false;
+  const time = new Date(lastSeen).getTime();
+  return Number.isFinite(time) && now - time < TRACKER_ONLINE_WINDOW_MS;
+};
+
+const liveMetrics = (tracker, now = Date.now()) => {
+  const online = isTrackerOnline(tracker?.lastSeen, now);
+  return {
+    online,
+    battery: online ? tracker?.battery ?? null : null,
+    signalStrength: online ? tracker?.signalStrength ?? null : null,
+  };
+};
+
+const serializeTracker = (tracker, now = Date.now()) => {
+  const data = typeof tracker.toJSON === "function" ? tracker.toJSON() : { ...tracker };
+  const metrics = liveMetrics(data, now);
+  return {
+    ...data,
+    battery: metrics.battery,
+    signalStrength: metrics.signalStrength,
+    online: metrics.online,
+  };
+};
+
 const telemetryResponse = ({ tracker, loc }) => ({
-  device_id: tracker.device_uid,
-  imei: tracker.imei ?? null,
-  name: tracker.name ?? null,
-  lat: loc?.lat ?? null,
-  lng: loc?.lng ?? null,
-  battery: loc?.battery ?? tracker.battery ?? null,
-  signal: tracker.signalStrength ?? null,
-  speed: loc?.speed ?? 0,
-  timestamp: loc?.timestamp ? new Date(loc.timestamp).toISOString() : null,
+  ...(() => {
+    const metrics = liveMetrics(tracker);
+    return {
+      device_id: tracker.device_uid,
+      imei: tracker.imei ?? null,
+      name: tracker.name ?? null,
+      lat: loc?.lat ?? null,
+      lng: loc?.lng ?? null,
+      battery: metrics.online ? loc?.battery ?? metrics.battery : null,
+      signal: metrics.signalStrength,
+      speed: loc?.speed ?? 0,
+      timestamp: loc?.timestamp ? new Date(loc.timestamp).toISOString() : null,
+      online: metrics.online,
+    };
+  })(),
 });
 
 const cleanImei = (value) => {
@@ -541,8 +574,10 @@ exports.latest = async (req, res) => {
       }
     }
 
+    const now = Date.now();
     const response = trackers.map((tracker) => {
       const loc = latestByTracker.get(tracker.device_uid);
+      const metrics = liveMetrics(tracker, now);
 
       return {
         device_id: tracker.device_uid,
@@ -551,8 +586,10 @@ exports.latest = async (req, res) => {
         imei: tracker.imei ?? null,
         name: tracker.name ?? null,
         type: tracker.type ?? null,
-        battery: tracker.battery ?? null,
-        signalStrength: tracker.signalStrength ?? null,
+        battery: metrics.battery,
+        signalStrength: metrics.signalStrength,
+        signal: metrics.signalStrength,
+        online: metrics.online,
         lat: loc ? loc.lat : null,
         lng: loc ? loc.lng : null,
         timestamp: loc ? loc.timestamp : tracker.lastSeen,
@@ -670,9 +707,12 @@ exports.alerts = async (req, res) => {
       limit: 50,
     });
 
+    const activeThreshold = new Date(Date.now() - TRACKER_ONLINE_WINDOW_MS);
+
     const lowBatteryDevices = await Tracker.findAll({
       where: {
         ...accessWhere,
+        lastSeen: { [Op.gte]: activeThreshold },
         battery: {
           [Op.ne]: null,
           [Op.lte]: lowBatteryThreshold,
@@ -688,6 +728,7 @@ exports.alerts = async (req, res) => {
     const poorSignalDevices = await Tracker.findAll({
       where: {
         ...accessWhere,
+        lastSeen: { [Op.gte]: activeThreshold },
         signalStrength: {
           [Op.ne]: null,
           [Op.lt]: 15,
@@ -706,7 +747,7 @@ exports.alerts = async (req, res) => {
         severity: "warning",
         device_uid: d.device_uid,
         imei: d.imei ?? null,
-        battery: d.battery ?? null,
+        battery: liveMetrics(d).battery,
         lastSeen: d.lastSeen ?? null,
         message: `Battery is low${d.battery !== null && d.battery !== undefined ? ` (${d.battery}%)` : ""}`,
       })),
@@ -715,7 +756,7 @@ exports.alerts = async (req, res) => {
         severity: "critical",
         device_uid: d.device_uid,
         imei: d.imei ?? null,
-        battery: d.battery ?? null,
+        battery: null,
         lastSeen: d.lastSeen ?? null,
         message: "Device has not reported recently",
       })),
@@ -724,8 +765,8 @@ exports.alerts = async (req, res) => {
         severity: "warning",
         device_uid: d.device_uid,
         imei: d.imei ?? null,
-        signalStrength: d.signalStrength ?? null,
-        battery: d.battery ?? null,
+        signalStrength: liveMetrics(d).signalStrength,
+        battery: liveMetrics(d).battery,
         lastSeen: d.lastSeen ?? null,
         message: `Signal is weak${d.signalStrength !== null && d.signalStrength !== undefined ? ` (${d.signalStrength})` : ""}`,
       })),
@@ -739,8 +780,8 @@ exports.alerts = async (req, res) => {
         device_uid: tracker?.device_uid ?? String(alert.tracker_id),
         tracker_id: alert.tracker_id,
         imei: tracker?.imei ?? null,
-        battery: tracker?.battery ?? null,
-        signalStrength: tracker?.signalStrength ?? null,
+        battery: liveMetrics(tracker).battery,
+        signalStrength: liveMetrics(tracker).signalStrength,
         lastSeen: tracker?.lastSeen ?? null,
         receivedAt: alert.createdAt ?? null,
         createdAt: alert.createdAt ?? null,
@@ -786,7 +827,7 @@ exports.devices = async (req, res) => {
       order: [["device_uid", "ASC"]],
     });
 
-    return res.json(devices);
+    return res.json(devices.map((device) => serializeTracker(device)));
   } catch (err) {
     console.error("devices error:", err);
     return res.sendStatus(500);

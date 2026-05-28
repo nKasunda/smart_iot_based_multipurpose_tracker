@@ -12,6 +12,13 @@ const adminRoutes = require("./routes/admin.routes");
 const userRoutes = require("./routes/user.routes");
 const cors = require("cors");
 const app = express();
+const TRACKER_ONLINE_WINDOW_MS = Number(process.env.TRACKER_ONLINE_WINDOW_MS || 2 * 60 * 1000);
+
+const isTrackerOnline = (lastSeen, now = Date.now()) => {
+  if (!lastSeen) return false;
+  const time = new Date(lastSeen).getTime();
+  return Number.isFinite(time) && now - time < TRACKER_ONLINE_WINDOW_MS;
+};
 
 const isHosted = process.env.RENDER || process.env.NODE_ENV === "production";
 const hasDatabaseConfig =
@@ -108,6 +115,8 @@ io.on("connection", async (socket) => {
       : null;
 
     if (!tracker || !loc) return;
+    const online = isTrackerOnline(tracker.lastSeen);
+
     socket.emit("location:update", {
       event: "location:update",
       v: 1,
@@ -117,10 +126,13 @@ io.on("connection", async (socket) => {
       name: tracker.name ?? null,
       lat: loc.lat,
       lng: loc.lng,
-      battery: loc.battery ?? tracker.battery ?? null,
-      signal: tracker.signalStrength ?? null,
+      battery: online ? loc.battery ?? tracker.battery ?? null : null,
+      signal: online ? tracker.signalStrength ?? null : null,
+      signalStrength: online ? tracker.signalStrength ?? null : null,
       speed: loc.speed ?? 0,
       timestamp: loc.timestamp ? new Date(loc.timestamp).toISOString() : null,
+      lastSeen: tracker.lastSeen ? new Date(tracker.lastSeen).toISOString() : null,
+      online,
     });
   } catch (err) {
     console.error("Socket replay failed", { device_id: deviceId, error: err.message });

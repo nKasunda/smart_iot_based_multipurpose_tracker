@@ -300,9 +300,9 @@ function SignInForm() {
             margin: "-12px 0 18px",
             padding: "10px 12px",
             borderRadius: 8,
-            background: "#eff6ff",
-            border: "1px solid #bfdbfe",
-            color: "#1e3a8a",
+            background: "white",
+            border: "1px solid #000080",
+            color: "#000080",
             fontSize: 13,
             fontWeight: 600,
             lineHeight: 1.45,
@@ -363,7 +363,7 @@ function SignInForm() {
 
         .sign-in-button:hover {
           transform: translateY(-1px);
-          background-color: #00006b;
+          background-color: #000080;
           box-shadow: 0 14px 22px rgba(0, 0, 128, 0.24);
         }
 

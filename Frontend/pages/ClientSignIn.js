@@ -5,7 +5,7 @@ function ClientPage() {
   return (
      <div
        style={{
-        background: "#0b4fbd",
+        background: "#000080",
         minHeight: "100dvh",
         color: "white",
         display: "flex",
