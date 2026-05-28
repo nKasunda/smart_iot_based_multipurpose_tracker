@@ -459,7 +459,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
           </div>
           <div style={{ padding: 16, display: "grid", gap: 12 }}>
             <div style={{ fontSize: 13, color: "var(--text-soft)" }}>
-              Share this provider-issued JWT with trusted developers only. It is scoped to this tracker, all endpoints are versioned under /api/v1, device_id must stay in the URL, telemetry must be sent as an array with ISO-8601 UTC timestamps, responses always use signal, and realtime updates are isolated to this device room.
+              Give this read-only API key to a trusted developer so they can fetch this tracker&apos;s latest location, history, or live updates from their own system. Use the GET examples below to test it.
             </div>
             {Array.isArray(integration.standards) && integration.standards.length ? (
               <div

@@ -48,7 +48,7 @@ app.set("io", io); // make io accessible in controllers
 
 // Socket auth: clients should pass { auth: { token } } or Authorization header.
 const jwt = require("jsonwebtoken");
-const DEVELOPER_API_AUDIENCE = "tracka-developer-api";
+const DEVELOPER_API_AUDIENCE = "tda-v1";
 io.use((socket, next) => {
   try {
     const header = socket.handshake.headers?.authorization || "";
@@ -66,14 +66,22 @@ io.use((socket, next) => {
     }
     socket.user = payload;
 
-    if (payload.type === "developer-api" && payload.device_id) {
-      if (!Array.isArray(payload.scopes) || !payload.scopes.includes("tracker:live:read")) {
-        console.warn("Socket auth failure: missing live scope", { device_id: payload.device_id });
+    const tokenType = payload.t || payload.type;
+    const tokenDeviceId = payload.did || payload.device_id;
+    const tokenScopes = Array.isArray(payload.scp)
+      ? payload.scp
+      : Array.isArray(payload.scopes)
+        ? payload.scopes
+        : [];
+
+    if (["dev", "developer-api"].includes(tokenType) && tokenDeviceId) {
+      if (!tokenScopes.includes("live") && !tokenScopes.includes("tracker:live:read")) {
+        console.warn("Socket auth failure: missing live scope", { device_id: tokenDeviceId });
         return next(new Error("unauthorized"));
       }
-      socket.data.developerDeviceId = String(payload.device_id);
-      socket.join(String(payload.device_id));
-      console.log("Developer socket connected", { device_id: payload.device_id, socket_id: socket.id });
+      socket.data.developerDeviceId = String(tokenDeviceId);
+      socket.join(String(tokenDeviceId));
+      console.log("Developer socket connected", { device_id: tokenDeviceId, socket_id: socket.id });
       return next();
     }
 

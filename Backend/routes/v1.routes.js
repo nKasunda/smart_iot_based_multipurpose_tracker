@@ -16,7 +16,6 @@ const perDeviceLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-router.post("/devices/:device_id/telemetry", perDeviceLimiter, trackerController.ingestTelemetryV1);
 router.get("/devices/:device_id/latest", perDeviceLimiter, trackerController.developerLatest);
 router.get("/devices/:device_id/history", perDeviceLimiter, trackerController.developerHistory);
 
