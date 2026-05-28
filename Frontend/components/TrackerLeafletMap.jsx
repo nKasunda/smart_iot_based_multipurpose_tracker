@@ -131,6 +131,14 @@ function getBearing(from, to) {
   return (Math.atan2(y, x) * 180) / Math.PI;
 }
 
+function getBearingFromPositions(from, to) {
+  if (!Array.isArray(from) || !Array.isArray(to)) return 0;
+  return getBearing(
+    { lat: from[0], lng: from[1] },
+    { lat: to[0], lng: to[1] }
+  );
+}
+
 function makeDeviceMarkerIcon({ color, online, selected }) {
   const classes = [
     "device-marker-outer",
@@ -281,7 +289,6 @@ export default function TrackerLeafletMap({
                   color: "#2563eb",
                   weight: 4,
                   opacity: 0.95,
-                  dashArray: "10 14",
                   lineCap: "round",
                   lineJoin: "round",
                   className: "tracker-live-route-main",
@@ -299,7 +306,7 @@ export default function TrackerLeafletMap({
               </Polyline>
               <Marker
                 position={positions[positions.length - 1]}
-                icon={makeRouteDirectionIcon(getBearing(positions[positions.length - 2], positions[positions.length - 1]))}
+                icon={makeRouteDirectionIcon(getBearingFromPositions(positions[positions.length - 2], positions[positions.length - 1]))}
                 interactive={false}
                 zIndexOffset={900}
               />
@@ -365,7 +372,6 @@ export default function TrackerLeafletMap({
               color: "#2563eb",
               weight: 4,
               opacity: 0.95,
-              dashArray: "10 14",
               lineCap: "round",
               lineJoin: "round",
               className: "tracker-live-route-main",
