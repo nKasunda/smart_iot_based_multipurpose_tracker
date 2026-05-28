@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { FaCheckCircle, FaEnvelope, FaExclamationTriangle } from "react-icons/fa";
 import { resendVerification, verifyEmail } from "../lib/api";
+import { friendlyError } from "../lib/errors";
 
 export default function VerifyEmailPage() {
   const router = useRouter();
@@ -23,7 +24,7 @@ export default function VerifyEmailPage() {
       })
       .catch((err) => {
         setStatus("error");
-        setMessage(err?.response?.data?.error || "Verification failed.");
+        setMessage(friendlyError(err, "Verification failed. Request a new verification link and try again."));
       });
   }, [router.isReady, router.query.token]);
 
@@ -38,7 +39,7 @@ export default function VerifyEmailPage() {
       setResendUrl(res?.verificationUrl || "");
     } catch (err) {
       setStatus("error");
-      setMessage(err?.response?.data?.error || "Could not resend verification.");
+      setMessage(friendlyError(err, "Could not resend verification. Check the email address and try again."));
     }
   };
 

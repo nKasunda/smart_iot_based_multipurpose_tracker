@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { FiTrash2 } from "react-icons/fi";
 import { getHistory } from "../../lib/api";
+import { friendlyError } from "../../lib/errors";
 import { formatDateTime, useSettings } from "../../context/SettingsContext";
 
 const TrackerLeafletMap = dynamic(() => import("../TrackerLeafletMap"), { ssr: false });
@@ -47,7 +48,7 @@ export default function History({ devices, latestByDevice, selectedDeviceId, set
       setInfo(`Loaded ${list.length} points — ${fromLabel} to ${toLabel}`);
 
     } catch (err) {
-      setError(err.response?.data?.error || err.message);
+      setError(friendlyError(err, "Could not load tracker history. Adjust the filters and try again."));
       setPath([]);
     } finally {
       setLoading(false);

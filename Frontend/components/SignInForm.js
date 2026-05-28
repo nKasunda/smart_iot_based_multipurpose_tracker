@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useAuth } from "../context/AuthContext";
 import { auth as firebaseAuth } from "../Firebase";
+import { friendlyError } from "../lib/errors";
 
 const GoogleLogo = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -43,7 +44,7 @@ function SignInForm() {
         await finishGoogleSignIn(credential);
       } catch (error) {
         console.error("Google redirect sign in error:", error);
-        setError(error.response?.data?.error || error.message || "Google sign-in failed");
+        setError(friendlyError(error, "Google sign-in could not complete. Please try again."));
       } finally {
         setLoading(false);
       }
@@ -67,7 +68,7 @@ function SignInForm() {
       router.push("/dashboard");
     } catch (error) {
       console.error("Sign in error:", error.message);
-      setError(error.response?.data?.error || error.message);
+      setError(friendlyError(error, "Sign in failed. Check your details and try again."));
     } finally {
       setLoading(false);
     }
@@ -89,7 +90,7 @@ function SignInForm() {
         await signInWithRedirect(firebaseAuth, provider);
         return;
       }
-      setError(error.response?.data?.error || error.message || "Google sign-in failed");
+      setError(friendlyError(error, "Google sign-in could not complete. Please try again."));
     } finally {
       setLoading(false);
     }

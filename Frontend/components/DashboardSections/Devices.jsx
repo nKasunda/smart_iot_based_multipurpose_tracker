@@ -4,6 +4,7 @@ import { FiTrash2, FiEdit2 } from "react-icons/fi";
 import { API_BASE } from "../../lib/config";
 import { getToken } from "../../lib/tokenStorage";
 import { getDeviceIntegration } from "../../lib/api";
+import { friendlyError } from "../../lib/errors";
 import { formatDateTime, useSettings } from "../../context/SettingsContext";
 
 function isOnline(lastSeen) {
@@ -115,7 +116,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
       await onRefresh?.();
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to provision device");
+      setError(friendlyError(err, "Failed to provision the tracker. Check the device ID and IMEI."));
     } finally {
       setLoading(false);
     }
@@ -138,7 +139,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
       await onRefresh?.();
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to delete device");
+      setError(friendlyError(err, "Failed to delete the tracker. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -161,7 +162,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
       await onRefresh?.();
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to unclaim device");
+      setError(friendlyError(err, "Failed to unclaim the tracker. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -198,7 +199,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
       await onRefresh?.();
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to claim device");
+      setError(friendlyError(err, "Failed to claim the tracker. Check the IMEI and try again."));
     } finally {
       setLoading(false);
     }
@@ -220,7 +221,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
       const data = await getDeviceIntegration(deviceId);
       setIntegration(data);
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to load tracker API details");
+      setError(friendlyError(err, "Failed to load developer API details. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -251,7 +252,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
       await onRefresh?.();
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to update device");
+      setError(friendlyError(err, "Failed to update the tracker. Check the fields and try again."));
     } finally {
       setLoading(false);
     }
@@ -438,7 +439,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
       {integration ? (
         <div style={panelStyle}>
           <div style={{ ...panelHeadStyle, display: "flex", justifyContent: "space-between", gap: 12 }}>
-            <span>Tracker API: {integration.device_id}</span>
+            <span>Developer API: {integration.device_id}</span>
             <button
               type="button"
               onClick={() => setIntegration(null)}
@@ -458,7 +459,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
           </div>
           <div style={{ padding: 16, display: "grid", gap: 12 }}>
             <div style={{ fontSize: 13, color: "var(--text-soft)" }}>
-              Use this endpoint when integrating your tracker with another platform. Plain JSON works for testing; encrypted payloads use UTF-8 JSON with AES-256-GCM.
+              Give these read-only details to a developer who needs to show this tracker inside another system. The API key can read latest location, history, and live socket updates for this tracker only.
             </div>
             <pre className="api-panel-code" style={{ margin: 0, padding: 14, borderRadius: 10, background: "var(--surface-muted)", color: "var(--text)", fontSize: 12 }}>
 {JSON.stringify(integration, null, 2)}

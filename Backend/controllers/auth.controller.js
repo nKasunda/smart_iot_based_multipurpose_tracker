@@ -126,15 +126,15 @@ exports.register = async (req, res) => {
     const { name, password } = req.body || {};
     const email = String(req.body?.email || '').trim().toLowerCase();
     if (!email || !password) {
-      return res.status(400).json({ error: 'email and password required' });
+      return res.status(400).json({ error: 'Enter both your email address and password.' });
     }
     if (String(password).length < 6) {
-      return res.status(400).json({ error: 'password must be at least 6 chars' });
+      return res.status(400).json({ error: 'Use a password with at least 6 characters.' });
     }
 
     const existing = await User.findOne({ where: { email } });
     if (existing) {
-      return res.status(409).json({ error: 'email already in use' });
+      return res.status(409).json({ error: 'That email is already registered. Try signing in instead.' });
     }
 
     const passwordHash = await bcrypt.hash(String(password), 10);
@@ -160,7 +160,7 @@ exports.register = async (req, res) => {
       user: publicUser(user)
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Could not create the account right now. Please try again.' });
   }
 };
 
@@ -176,12 +176,12 @@ exports.registerAdmin = async (req, res) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
     if (!email || !password) {
-      return res.status(400).json({ error: 'email and password required' });
+      return res.status(400).json({ error: 'Enter both your email address and password.' });
     }
 
     const existing = await User.findOne({ where: { email } });
     if (existing) {
-      return res.status(409).json({ error: 'email already in use' });
+      return res.status(409).json({ error: 'That email is already registered.' });
     }
 
     const passwordHash = await bcrypt.hash(String(password), 10);
@@ -200,7 +200,7 @@ exports.registerAdmin = async (req, res) => {
       user: publicUser(user)
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Could not create the admin account right now. Please try again.' });
   }
 };
 
@@ -209,7 +209,7 @@ exports.login = async (req, res) => {
     const email = String(req.body?.email || '').trim().toLowerCase();
     const { password } = req.body || {};
     if (!email || !password) {
-      return res.status(400).json({ error: 'email and password required' });
+      return res.status(400).json({ error: 'Enter both your email address and password.' });
     }
 
     const user = await User.scope('withPassword').findOne({ where: { email } });
@@ -227,7 +227,7 @@ exports.login = async (req, res) => {
       user: publicUser(user)
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Sign in is temporarily unavailable. Please try again.' });
   }
 };
 

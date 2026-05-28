@@ -47,6 +47,7 @@ app.set("io", io); // make io accessible in controllers
 
 // Socket auth: clients should pass { auth: { token } } or Authorization header.
 const jwt = require("jsonwebtoken");
+const DEVELOPER_API_AUDIENCE = "tracka-developer-api";
 io.use((socket, next) => {
   try {
     const header = socket.handshake.headers?.authorization || "";
@@ -56,8 +57,19 @@ io.use((socket, next) => {
 
     const secret = process.env.JWT_SECRET;
     if (!secret) return next(new Error("JWT_SECRET not set"));
-    const payload = jwt.verify(token, secret);
+    let payload;
+    try {
+      payload = jwt.verify(token, secret, { audience: DEVELOPER_API_AUDIENCE });
+    } catch {
+      payload = jwt.verify(token, secret);
+    }
     socket.user = payload;
+
+    if (payload.type === "developer-api" && payload.device_id) {
+      socket.join(`developer:${payload.device_id}`);
+      return next();
+    }
+
     socket.join(`user:${payload.id}`);
     if (payload.role === "admin") socket.join("admin");
     return next();

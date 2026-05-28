@@ -1,6 +1,15 @@
 const { Tracker, Location, User } = require("../models");
 const { Op } = require("sequelize");
 const crypto = require("crypto");
+const jwt = require("jsonwebtoken");
+
+const DEVELOPER_API_AUDIENCE = "tracka-developer-api";
+
+function getJwtSecret() {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error("JWT_SECRET is not set");
+  return secret;
+}
 
 const buildAccessWhere = (user) => {
   if (!user || user.role === "admin") return {};
@@ -48,6 +57,47 @@ const resolveTrackerByAnyId = async (rawId) => {
   }
 
   return null;
+};
+
+const buildBaseUrl = (req) => `${req.protocol}://${req.get("host")}`;
+
+const signDeveloperToken = ({ userId, deviceId }) => jwt.sign(
+  {
+    type: "developer-api",
+    aud: DEVELOPER_API_AUDIENCE,
+    sub: String(userId),
+    device_id: deviceId,
+    scopes: ["tracker:latest:read", "tracker:history:read", "tracker:live:read"],
+  },
+  getJwtSecret(),
+  { expiresIn: process.env.DEVELOPER_API_TOKEN_EXPIRES_IN || "365d" }
+);
+
+const getDeveloperAccess = async (req) => {
+  const authHeader = req.headers.authorization || "";
+  const [scheme, token] = authHeader.split(" ");
+  if (scheme !== "Bearer" || !token) return { error: "Missing developer API key", status: 401 };
+
+  let payload;
+  try {
+    payload = jwt.verify(token, getJwtSecret(), { audience: DEVELOPER_API_AUDIENCE });
+  } catch {
+    return { error: "Developer API key is invalid or expired", status: 401 };
+  }
+
+  if (payload.type !== "developer-api" || !payload.device_id) {
+    return { error: "This API key cannot access tracker developer endpoints", status: 403 };
+  }
+
+  const tracker = await resolveTrackerByAnyId(payload.device_id);
+  if (!tracker) return { error: "Tracker linked to this API key was not found", status: 404 };
+
+  const userId = Number(payload.sub);
+  if (tracker.userId !== userId) {
+    return { error: "This API key no longer has access to this tracker", status: 403 };
+  }
+
+  return { tracker, payload };
 };
 
 const cleanImei = (value) => {
@@ -313,15 +363,6 @@ exports.ingestSMS = async (req, res) => {
       return res.status(403).json({ error: "Invalid IMEI" });
     }
 
-    // For smartphone trackers, require ingestToken for security
-    if (tracker.type === 'smartphone') {
-      const token = parsed.token || req.body.token;
-      if (!token || token !== tracker.ingestToken) {
-        console.warn("Rejected ingest for smartphone tracker - invalid token:", imei);
-        return res.status(403).json({ error: "Invalid token" });
-      }
-    }
-
     const lat = extractNumber(parsed, ["lat", "latitude"], /\bLAT(?:ITUDE)?\s*[:=]\s*(-?\d+(?:\.\d+)?)/i);
     const lng = extractNumber(parsed, ["lng", "lon", "longitude"], /\b(?:LNG|LON|LONGITUDE)\s*[:=]\s*(-?\d+(?:\.\d+)?)/i);
 
@@ -381,6 +422,7 @@ exports.ingestSMS = async (req, res) => {
       if (tracker.userId) {
         io.to(`user:${tracker.userId}`).emit("location:update", { location });
       }
+      io.to(`developer:${tracker.device_uid}`).emit("location:update", { location });
 
       // Backward-compat for older clients
       const legacyPayload = {
@@ -659,43 +701,127 @@ exports.deviceIntegration = async (req, res) => {
       if (!allowed) return res.status(403).json({ error: "Forbidden" });
     }
 
-    if (!tracker.ingestToken) {
-      tracker.ingestToken = crypto.randomUUID();
-      await tracker.save();
+    if (!tracker.userId) {
+      return res.status(409).json({ error: "Assign this tracker to a user before generating a developer API key." });
     }
 
-    const ingestUrl = `${req.protocol}://${req.get("host")}/api/tracker/ingest`;
-    const plainJson = {
-      imei: tracker.imei,
-      lat: -15.3876,
-      lng: 35.3367,
-      battery: 87,
-      signal: 22,
-    };
+    const baseUrl = buildBaseUrl(req);
+    const apiKey = signDeveloperToken({ userId: tracker.userId, deviceId: tracker.device_uid });
 
     return res.json({
       device_id: tracker.device_uid,
       imei: tracker.imei,
-      ingestUrl,
-      method: "POST",
-      contentType: "application/json; charset=utf-8",
+      name: tracker.name ?? null,
+      purpose: "Read-only developer access for integrating tracker data into external systems.",
       auth: {
-        token: tracker.ingestToken,
-        note: "Smartphone trackers must include token. Hardware trackers may also use this token as the AES key for encrypted payloads.",
+        type: "Bearer",
+        apiKey,
+        expiresIn: process.env.DEVELOPER_API_TOKEN_EXPIRES_IN || "365d",
+        scopes: ["tracker:latest:read", "tracker:history:read", "tracker:live:read"],
       },
-      plainJson,
-      encryptedEnvelope: {
-        encryption: "aes-256-gcm",
-        encoding: "utf-8",
-        kid: tracker.device_uid,
-        iv: "base64-12-byte-nonce",
-        tag: "base64-16-byte-auth-tag",
-        payload: "base64-encrypted-utf8-json",
+      endpoints: {
+        latest: {
+          method: "GET",
+          url: `${baseUrl}/api/tracker/developer/latest`,
+          description: "Returns the latest coordinate, battery, signal, and timestamp for this tracker.",
+        },
+        history: {
+          method: "GET",
+          url: `${baseUrl}/api/tracker/developer/history?from=2026-01-01T00:00:00.000Z&to=2026-01-02T00:00:00.000Z&limit=500`,
+          description: "Returns a historical path for this tracker. from, to, and limit are optional.",
+        },
+        liveSocket: {
+          url: baseUrl,
+          auth: { token: "use the apiKey above in socket.io auth.token" },
+          event: "location:update",
+          description: "Connect with Socket.IO and listen for real-time location:update events for this tracker.",
+        },
+      },
+      examples: {
+        latestCurl: `curl -H "Authorization: Bearer ${apiKey}" "${baseUrl}/api/tracker/developer/latest"`,
+        historyCurl: `curl -H "Authorization: Bearer ${apiKey}" "${baseUrl}/api/tracker/developer/history?limit=100"`,
+        latestResponse: {
+          device_id: tracker.device_uid,
+          imei: tracker.imei,
+          name: tracker.name ?? null,
+          lat: -15.3876,
+          lng: 35.3367,
+          battery: 87,
+          signalStrength: 22,
+          timestamp: new Date().toISOString(),
+        },
       },
     });
   } catch (err) {
     console.error("deviceIntegration error:", err);
     return res.status(500).json({ error: err.message });
+  }
+};
+
+exports.developerLatest = async (req, res) => {
+  try {
+    const access = await getDeveloperAccess(req);
+    if (access.error) return res.status(access.status).json({ error: access.error });
+
+    const tracker = access.tracker;
+    const loc = await Location.findOne({
+      where: { device_id: tracker.device_uid },
+      attributes: ["device_id", "lat", "lng", "speed", "battery", "timestamp"],
+      order: [["timestamp", "DESC"]],
+    });
+
+    return res.json({
+      device_id: tracker.device_uid,
+      imei: tracker.imei ?? null,
+      name: tracker.name ?? null,
+      type: tracker.type ?? null,
+      lat: loc?.lat ?? null,
+      lng: loc?.lng ?? null,
+      speed: loc?.speed ?? 0,
+      battery: tracker.battery ?? loc?.battery ?? null,
+      signalStrength: tracker.signalStrength ?? null,
+      lastSeen: tracker.lastSeen ?? null,
+      timestamp: loc?.timestamp ?? tracker.lastSeen ?? null,
+    });
+  } catch (err) {
+    console.error("developerLatest error:", err);
+    return res.status(500).json({ error: "Could not load the latest tracker location. Please try again." });
+  }
+};
+
+exports.developerHistory = async (req, res) => {
+  try {
+    const access = await getDeveloperAccess(req);
+    if (access.error) return res.status(access.status).json({ error: access.error });
+
+    const tracker = access.tracker;
+    const where = { device_id: tracker.device_uid };
+    const from = req.query?.from ? new Date(String(req.query.from)) : null;
+    const to = req.query?.to ? new Date(String(req.query.to)) : null;
+
+    if (from && Number.isFinite(from.getTime())) where.timestamp = { ...(where.timestamp || {}), [Op.gte]: from };
+    if (to && Number.isFinite(to.getTime())) where.timestamp = { ...(where.timestamp || {}), [Op.lte]: to };
+
+    let limit = req.query?.limit ? Number(req.query.limit) : 500;
+    if (!Number.isFinite(limit) || limit <= 0) limit = 500;
+    limit = Math.min(limit, 5000);
+
+    const rows = await Location.findAll({
+      where,
+      attributes: ["device_id", "lat", "lng", "speed", "battery", "timestamp"],
+      order: [["timestamp", "DESC"]],
+      limit,
+    });
+
+    return res.json({
+      device_id: tracker.device_uid,
+      imei: tracker.imei ?? null,
+      count: rows.length,
+      locations: rows,
+    });
+  } catch (err) {
+    console.error("developerHistory error:", err);
+    return res.status(500).json({ error: "Could not load tracker history. Please try again." });
   }
 };
 
@@ -732,43 +858,6 @@ exports.registerDevice = async (req, res) => {
     return res.json(device);
   } catch (err) {
     console.error("registerDevice error:", err);
-    return res.status(500).json({ error: err.message });
-  }
-};
-
-/**
- * Create a smartphone tracker for a user
- */
-exports.createSmartphoneTracker = async (req, res) => {
-  try {
-    const userId = req.user?.id;
-    if (!userId) return res.status(401).json({ error: "Authentication required" });
-
-    const name = req.body?.name ? String(req.body.name).trim() : "My Smartphone";
-
-    // Generate virtual IMEI and token
-    const virtualImei = `APP-${crypto.randomUUID()}`;
-    const ingestToken = crypto.randomUUID();
-
-    // Create device_uid
-    const device_uid = `PHONE-${Date.now()}`;
-
-    const tracker = await Tracker.create({
-      device_uid,
-      imei: virtualImei,
-      ingestToken,
-      type: 'smartphone',
-      name,
-      userId,
-      status: 'assigned',
-    });
-
-    return res.json({
-      tracker,
-      trackingUrl: `${req.protocol}://${req.get('host')}/phone-tracker?imei=${virtualImei}&token=${ingestToken}`,
-    });
-  } catch (err) {
-    console.error("createSmartphoneTracker error:", err);
     return res.status(500).json({ error: err.message });
   }
 };

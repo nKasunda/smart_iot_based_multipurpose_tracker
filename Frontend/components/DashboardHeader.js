@@ -5,6 +5,7 @@ import { FiClock, FiLogOut, FiEye, FiEyeOff, FiMonitor, FiMoon, FiSun, FiX } fro
 import { useSettings } from "../context/SettingsContext";
 import { useAuth } from "../context/AuthContext";
 import { getServerTime, updatePassword, updateProfile } from "../lib/api";
+import { friendlyError } from "../lib/errors";
 
 function getInitials(user) {
   const name = (user?.name || "").trim();
@@ -152,7 +153,7 @@ function ProfileDropdown({ user, onClose, isAdmin, anchorRef }) {
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 2500);
     } catch (err) {
-      setProfileError(err?.response?.data?.error || "Could not save profile.");
+      setProfileError(friendlyError(err, "Could not save profile. Check your details and try again."));
     }
   };
 
@@ -166,7 +167,7 @@ function ProfileDropdown({ user, onClose, isAdmin, anchorRef }) {
       setCurrent(""); setNextPw(""); setConfirm("");
       setTimeout(() => setPwSaved(false), 2500);
     } catch (err) {
-      setPwError(err?.response?.data?.error || "Something went wrong. Please try again.");
+      setPwError(friendlyError(err, "Could not update password. Check your current password and try again."));
     }
   };
 

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { FaUser, FaEnvelope, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
 import Link from "next/link";
 import { useAuth } from "../context/AuthContext";
+import { friendlyError } from "../lib/errors";
 
 function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -27,19 +28,19 @@ function RegisterForm() {
 
     // Validation
     if (!name.trim()) {
-      setError("Name is required");
+      setError("Enter your full name to create the account.");
       setLoading(false);
       return;
     }
 
     if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+      setError("Use a password with at least 6 characters.");
       setLoading(false);
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      setError("The passwords do not match. Re-enter them and try again.");
       setLoading(false);
       return;
     }
@@ -50,7 +51,7 @@ function RegisterForm() {
       setVerificationUrl(data?.verificationUrl || "");
     } catch (error) {
       console.error("Register error:", error.message);
-      setError(error.response?.data?.error || error.message);
+      setError(friendlyError(error, "Registration failed. Check your details and try again."));
     } finally {
       setLoading(false);
     }

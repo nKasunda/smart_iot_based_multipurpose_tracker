@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { FaArrowLeft, FaEnvelope } from "react-icons/fa";
 import { forgotPassword } from "../lib/api";
+import { friendlyError } from "../lib/errors";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -23,7 +24,7 @@ export default function ForgotPasswordPage() {
       const res = await forgotPassword(email);
       setMessage(res?.message || "If an account exists for that email, reset instructions will be sent.");
     } catch (err) {
-      setError(err?.response?.data?.error || "Unable to process reset request right now.");
+      setError(friendlyError(err, "Unable to process reset request right now."));
     } finally {
       setLoading(false);
     }
