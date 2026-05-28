@@ -798,41 +798,43 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
                       </>
                     )
                   ) : (
-                    <button
-                      onClick={() => handleUserUnclaim(d.device_uid)}
-                      disabled={loading}
-                      style={{
-                        padding: "6px 10px",
-                        borderRadius: "6px",
-                        border: "none",
-                        background: "#f97316",
-                        color: "#ffffff",
-                        cursor: loading ? "not-allowed" : "pointer",
-                        fontWeight: 700,
-                        fontSize: "12px",
-                        transition: "all 0.2s ease",
-                        opacity: loading ? 0.6 : 1,
-                      }}
-                    >
-                      Unclaim
-                    </button>
-                    <button
-                      onClick={() => handleShowIntegration(d.device_uid)}
-                      disabled={loading}
-                      style={{
-                        padding: "6px 10px",
-                        borderRadius: "6px",
-                        border: "1px solid var(--border)",
-                        background: "var(--surface-strong)",
-                        color: "var(--text)",
-                        cursor: loading ? "not-allowed" : "pointer",
-                        fontWeight: 800,
-                        fontSize: "12px",
-                        opacity: loading ? 0.6 : 1,
-                      }}
-                    >
-                      API
-                    </button>
+                    <>
+                      <button
+                        onClick={() => handleUserUnclaim(d.device_uid)}
+                        disabled={loading}
+                        style={{
+                          padding: "6px 10px",
+                          borderRadius: "6px",
+                          border: "none",
+                          background: "#f97316",
+                          color: "#ffffff",
+                          cursor: loading ? "not-allowed" : "pointer",
+                          fontWeight: 700,
+                          fontSize: "12px",
+                          transition: "all 0.2s ease",
+                          opacity: loading ? 0.6 : 1,
+                        }}
+                      >
+                        Unclaim
+                      </button>
+                      <button
+                        onClick={() => handleShowIntegration(d.device_uid)}
+                        disabled={loading}
+                        style={{
+                          padding: "6px 10px",
+                          borderRadius: "6px",
+                          border: "1px solid var(--border)",
+                          background: "var(--surface-strong)",
+                          color: "var(--text)",
+                          cursor: loading ? "not-allowed" : "pointer",
+                          fontWeight: 800,
+                          fontSize: "12px",
+                          opacity: loading ? 0.6 : 1,
+                        }}
+                      >
+                        API
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
