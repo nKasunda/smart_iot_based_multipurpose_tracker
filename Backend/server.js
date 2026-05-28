@@ -3,10 +3,11 @@ const express = require("express");
 const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
 const http = require("http");
-const { sequelize } = require("./models");
+const { sequelize, Tracker, Location } = require("./models");
 const { ensureSchema } = require("./services/schema");
 const authRoutes = require("./routes/auth.routes");
 const trackerRoutes = require("./routes/tracker.routes");
+const v1Routes = require("./routes/v1.routes");
 const adminRoutes = require("./routes/admin.routes");
 const userRoutes = require("./routes/user.routes");
 const cors = require("cors");
@@ -66,7 +67,13 @@ io.use((socket, next) => {
     socket.user = payload;
 
     if (payload.type === "developer-api" && payload.device_id) {
-      socket.join(`developer:${payload.device_id}`);
+      if (!Array.isArray(payload.scopes) || !payload.scopes.includes("tracker:live:read")) {
+        console.warn("Socket auth failure: missing live scope", { device_id: payload.device_id });
+        return next(new Error("unauthorized"));
+      }
+      socket.data.developerDeviceId = String(payload.device_id);
+      socket.join(String(payload.device_id));
+      console.log("Developer socket connected", { device_id: payload.device_id, socket_id: socket.id });
       return next();
     }
 
@@ -75,6 +82,40 @@ io.use((socket, next) => {
     return next();
   } catch (err) {
     return next(new Error("unauthorized"));
+  }
+});
+
+io.on("connection", async (socket) => {
+  const deviceId = socket.data?.developerDeviceId;
+  if (!deviceId) return;
+
+  try {
+    const tracker = await Tracker.findOne({ where: { device_uid: deviceId } });
+    const loc = tracker
+      ? await Location.findOne({
+          where: { device_id: tracker.device_uid },
+          attributes: ["device_id", "lat", "lng", "speed", "battery", "timestamp"],
+          order: [["timestamp", "DESC"]],
+        })
+      : null;
+
+    if (!tracker || !loc) return;
+    socket.emit("location:update", {
+      event: "location:update",
+      v: 1,
+      replay: true,
+      device_id: tracker.device_uid,
+      imei: tracker.imei ?? null,
+      name: tracker.name ?? null,
+      lat: loc.lat,
+      lng: loc.lng,
+      battery: loc.battery ?? tracker.battery ?? null,
+      signal: tracker.signalStrength ?? null,
+      speed: loc.speed ?? 0,
+      timestamp: loc.timestamp ? new Date(loc.timestamp).toISOString() : null,
+    });
+  } catch (err) {
+    console.error("Socket replay failed", { device_id: deviceId, error: err.message });
   }
 });
 
@@ -92,6 +133,7 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/user", userRoutes);
+app.use("/api/v1", v1Routes);
 app.use("/api/tracker/ingest", limiter);
 app.use("/api/tracker", trackerRoutes);
 

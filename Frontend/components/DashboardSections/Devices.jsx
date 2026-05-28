@@ -459,8 +459,46 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
           </div>
           <div style={{ padding: 16, display: "grid", gap: 12 }}>
             <div style={{ fontSize: 13, color: "var(--text-soft)" }}>
-              Give these read-only details to a developer who needs to show this tracker inside another system. The API key can read latest location, history, and live socket updates for this tracker only.
+              Share this provider-issued JWT with trusted developers only. It is scoped to this tracker, all endpoints are versioned under /api/v1, device_id must stay in the URL, telemetry must be sent as an array with ISO-8601 UTC timestamps, responses always use signal, and realtime updates are isolated to this device room.
             </div>
+            {Array.isArray(integration.standards) && integration.standards.length ? (
+              <div
+                style={{
+                  display: "grid",
+                  gap: 8,
+                  padding: 12,
+                  borderRadius: 10,
+                  background: "var(--surface-muted)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                {integration.standards.map((standard) => (
+                  <div
+                    key={standard}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "8px 1fr",
+                      gap: 8,
+                      alignItems: "start",
+                      color: "var(--text-soft)",
+                      fontSize: 12,
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: 999,
+                        background: "var(--primary-ui)",
+                        marginTop: 6,
+                      }}
+                    />
+                    <span>{standard}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
             <pre className="api-panel-code" style={{ margin: 0, padding: 14, borderRadius: 10, background: "var(--surface-muted)", color: "var(--text)", fontSize: 12 }}>
 {JSON.stringify(integration, null, 2)}
             </pre>

@@ -5,6 +5,8 @@ const jwt = require("jsonwebtoken");
 
 const DEVELOPER_API_AUDIENCE = "tracka-developer-api";
 
+const apiError = (res, status, error, message) => res.status(status).json({ error, message, status });
+
 function getJwtSecret() {
   const secret = process.env.JWT_SECRET;
   if (!secret) throw new Error("JWT_SECRET is not set");
@@ -67,38 +69,77 @@ const signDeveloperToken = ({ userId, deviceId }) => jwt.sign(
     aud: DEVELOPER_API_AUDIENCE,
     sub: String(userId),
     device_id: deviceId,
-    scopes: ["tracker:latest:read", "tracker:history:read", "tracker:live:read"],
+    scopes: ["tracker:telemetry:write", "tracker:latest:read", "tracker:history:read", "tracker:live:read"],
   },
   getJwtSecret(),
   { expiresIn: process.env.DEVELOPER_API_TOKEN_EXPIRES_IN || "365d" }
 );
 
-const getDeveloperAccess = async (req) => {
+const getDeveloperAccess = async (req, options = {}) => {
+  const expectedDeviceId = options.deviceId ? String(options.deviceId).trim() : "";
+  const requiredScope = options.scope;
   const authHeader = req.headers.authorization || "";
   const [scheme, token] = authHeader.split(" ");
-  if (scheme !== "Bearer" || !token) return { error: "Missing developer API key", status: 401 };
+  if (scheme !== "Bearer" || !token) {
+    console.warn("Developer API auth failure: missing bearer token", { device_id: expectedDeviceId || null });
+    return { error: "UNAUTHORIZED", message: "Missing developer API key.", status: 401 };
+  }
 
   let payload;
   try {
     payload = jwt.verify(token, getJwtSecret(), { audience: DEVELOPER_API_AUDIENCE });
   } catch {
-    return { error: "Developer API key is invalid or expired", status: 401 };
+    console.warn("Developer API auth failure: invalid token", { device_id: expectedDeviceId || null });
+    return { error: "UNAUTHORIZED", message: "Developer API key is invalid or expired.", status: 401 };
   }
 
   if (payload.type !== "developer-api" || !payload.device_id) {
-    return { error: "This API key cannot access tracker developer endpoints", status: 403 };
+    return { error: "FORBIDDEN", message: "This API key cannot access tracker developer endpoints.", status: 403 };
+  }
+
+  if (expectedDeviceId && String(payload.device_id) !== expectedDeviceId) {
+    console.warn("Developer API device mismatch", {
+      token_device_id: payload.device_id,
+      requested_device_id: expectedDeviceId,
+    });
+    return { error: "DEVICE_SCOPE_MISMATCH", message: "API key device_id does not match the requested device.", status: 403 };
+  }
+
+  if (requiredScope && (!Array.isArray(payload.scopes) || !payload.scopes.includes(requiredScope))) {
+    return { error: "INSUFFICIENT_SCOPE", message: `API key requires ${requiredScope} scope.`, status: 403 };
   }
 
   const tracker = await resolveTrackerByAnyId(payload.device_id);
-  if (!tracker) return { error: "Tracker linked to this API key was not found", status: 404 };
+  if (!tracker) return { error: "NOT_FOUND", message: "Tracker linked to this API key was not found.", status: 404 };
 
   const userId = Number(payload.sub);
   if (tracker.userId !== userId) {
-    return { error: "This API key no longer has access to this tracker", status: 403 };
+    return { error: "FORBIDDEN", message: "This API key no longer has access to this tracker.", status: 403 };
   }
 
   return { tracker, payload };
 };
+
+const sendAccessError = (res, access) => apiError(res, access.status, access.error, access.message);
+
+const parseRequiredTimestamp = (value) => {
+  if (!value) return null;
+  const date = new Date(String(value));
+  if (!Number.isFinite(date.getTime())) return null;
+  return date;
+};
+
+const telemetryResponse = ({ tracker, loc }) => ({
+  device_id: tracker.device_uid,
+  imei: tracker.imei ?? null,
+  name: tracker.name ?? null,
+  lat: loc?.lat ?? null,
+  lng: loc?.lng ?? null,
+  battery: loc?.battery ?? tracker.battery ?? null,
+  signal: tracker.signalStrength ?? null,
+  speed: loc?.speed ?? 0,
+  timestamp: loc?.timestamp ? new Date(loc.timestamp).toISOString() : null,
+});
 
 const cleanImei = (value) => {
   if (value === undefined || value === null) return null;
@@ -422,7 +463,11 @@ exports.ingestSMS = async (req, res) => {
       if (tracker.userId) {
         io.to(`user:${tracker.userId}`).emit("location:update", { location });
       }
-      io.to(`developer:${tracker.device_uid}`).emit("location:update", { location });
+      io.to(tracker.device_uid).emit("location:update", {
+        event: "location:update",
+        v: 1,
+        ...telemetryResponse({ tracker, loc: location }),
+      });
 
       // Backward-compat for older clients
       const legacyPayload = {
@@ -709,25 +754,41 @@ exports.deviceIntegration = async (req, res) => {
     const apiKey = signDeveloperToken({ userId: tracker.userId, deviceId: tracker.device_uid });
 
     return res.json({
+      apiVersion: "v1",
       device_id: tracker.device_uid,
       imei: tracker.imei,
       name: tracker.name ?? null,
-      purpose: "Read-only developer access for integrating tracker data into external systems.",
+      purpose: "Provider-issued JWT access for integrating this tracker with an external system.",
+      standards: [
+        "All developer endpoints are versioned under /api/v1.",
+        "The JWT is issued by TrackA and is scoped to this device_id only.",
+        "Requests are rejected when the device_id in the URL does not match the device_id in the JWT.",
+        "Telemetry ingestion uses a telemetry array; every entry must include lat, lng, battery, signal, and an ISO-8601 UTC timestamp.",
+        "Responses use consistent field names: lat, lng, battery, signal, timestamp.",
+        "Errors use { error, message, status }.",
+        "Realtime updates are isolated per device room and emit location:update with v: 1.",
+        "Rate limits are applied per device/API key.",
+      ],
       auth: {
         type: "Bearer",
         apiKey,
         expiresIn: process.env.DEVELOPER_API_TOKEN_EXPIRES_IN || "365d",
-        scopes: ["tracker:latest:read", "tracker:history:read", "tracker:live:read"],
+        scopes: ["tracker:telemetry:write", "tracker:latest:read", "tracker:history:read", "tracker:live:read"],
       },
       endpoints: {
+        telemetryIngest: {
+          method: "POST",
+          url: `${baseUrl}/api/v1/devices/${encodeURIComponent(tracker.device_uid)}/telemetry`,
+          description: "Stores one or more telemetry records. device_id is in the URL and must match the JWT.",
+        },
         latest: {
           method: "GET",
-          url: `${baseUrl}/api/tracker/developer/latest`,
+          url: `${baseUrl}/api/v1/devices/${encodeURIComponent(tracker.device_uid)}/latest`,
           description: "Returns the latest coordinate, battery, signal, and timestamp for this tracker.",
         },
         history: {
           method: "GET",
-          url: `${baseUrl}/api/tracker/developer/history?from=2026-01-01T00:00:00.000Z&to=2026-01-02T00:00:00.000Z&limit=500`,
+          url: `${baseUrl}/api/v1/devices/${encodeURIComponent(tracker.device_uid)}/history?from=2026-01-01T00:00:00.000Z&to=2026-01-02T00:00:00.000Z&limit=500`,
           description: "Returns a historical path for this tracker. from, to, and limit are optional.",
         },
         liveSocket: {
@@ -738,16 +799,36 @@ exports.deviceIntegration = async (req, res) => {
         },
       },
       examples: {
-        latestCurl: `curl -H "Authorization: Bearer ${apiKey}" "${baseUrl}/api/tracker/developer/latest"`,
-        historyCurl: `curl -H "Authorization: Bearer ${apiKey}" "${baseUrl}/api/tracker/developer/history?limit=100"`,
+        telemetryBody: {
+          device_id: tracker.device_uid,
+          telemetry: [
+            {
+              lat: -15.3876,
+              lng: 35.3367,
+              battery: 87,
+              signal: 22,
+              timestamp: "2026-05-28T10:00:00Z",
+            },
+          ],
+        },
+        telemetryCurl: `curl -X POST -H "Authorization: Bearer ${apiKey}" -H "Content-Type: application/json" -d '{"device_id":"${tracker.device_uid}","telemetry":[{"lat":-15.3876,"lng":35.3367,"battery":87,"signal":22,"timestamp":"2026-05-28T10:00:00Z"}]}' "${baseUrl}/api/v1/devices/${encodeURIComponent(tracker.device_uid)}/telemetry"`,
+        latestCurl: `curl -H "Authorization: Bearer ${apiKey}" "${baseUrl}/api/v1/devices/${encodeURIComponent(tracker.device_uid)}/latest"`,
+        historyCurl: `curl -H "Authorization: Bearer ${apiKey}" "${baseUrl}/api/v1/devices/${encodeURIComponent(tracker.device_uid)}/history?limit=100"`,
+        errorResponse: {
+          error: "INVALID_TIMESTAMP",
+          message: "telemetry[0] must include a valid ISO-8601 timestamp.",
+          status: 400,
+        },
         latestResponse: {
+          event: "location:update",
+          v: 1,
           device_id: tracker.device_uid,
           imei: tracker.imei,
           name: tracker.name ?? null,
           lat: -15.3876,
           lng: 35.3367,
           battery: 87,
-          signalStrength: 22,
+          signal: 22,
           timestamp: new Date().toISOString(),
         },
       },
@@ -760,8 +841,11 @@ exports.deviceIntegration = async (req, res) => {
 
 exports.developerLatest = async (req, res) => {
   try {
-    const access = await getDeveloperAccess(req);
-    if (access.error) return res.status(access.status).json({ error: access.error });
+    const access = await getDeveloperAccess(req, {
+      deviceId: req.params.device_id,
+      scope: "tracker:latest:read",
+    });
+    if (access.error) return sendAccessError(res, access);
 
     const tracker = access.tracker;
     const loc = await Location.findOne({
@@ -771,17 +855,9 @@ exports.developerLatest = async (req, res) => {
     });
 
     return res.json({
-      device_id: tracker.device_uid,
-      imei: tracker.imei ?? null,
-      name: tracker.name ?? null,
-      type: tracker.type ?? null,
-      lat: loc?.lat ?? null,
-      lng: loc?.lng ?? null,
-      speed: loc?.speed ?? 0,
-      battery: tracker.battery ?? loc?.battery ?? null,
-      signalStrength: tracker.signalStrength ?? null,
-      lastSeen: tracker.lastSeen ?? null,
-      timestamp: loc?.timestamp ?? tracker.lastSeen ?? null,
+      v: 1,
+      ...telemetryResponse({ tracker, loc }),
+      lastSeen: tracker.lastSeen ? new Date(tracker.lastSeen).toISOString() : null,
     });
   } catch (err) {
     console.error("developerLatest error:", err);
@@ -791,8 +867,11 @@ exports.developerLatest = async (req, res) => {
 
 exports.developerHistory = async (req, res) => {
   try {
-    const access = await getDeveloperAccess(req);
-    if (access.error) return res.status(access.status).json({ error: access.error });
+    const access = await getDeveloperAccess(req, {
+      deviceId: req.params.device_id,
+      scope: "tracker:history:read",
+    });
+    if (access.error) return sendAccessError(res, access);
 
     const tracker = access.tracker;
     const where = { device_id: tracker.device_uid };
@@ -814,14 +893,116 @@ exports.developerHistory = async (req, res) => {
     });
 
     return res.json({
+      v: 1,
       device_id: tracker.device_uid,
       imei: tracker.imei ?? null,
       count: rows.length,
-      locations: rows,
+      telemetry: rows.map((loc) => telemetryResponse({ tracker, loc })),
     });
   } catch (err) {
     console.error("developerHistory error:", err);
     return res.status(500).json({ error: "Could not load tracker history. Please try again." });
+  }
+};
+
+exports.ingestTelemetryV1 = async (req, res) => {
+  const startedAt = Date.now();
+  const deviceId = String(req.params.device_id || "").trim();
+
+  try {
+    const access = await getDeveloperAccess(req, {
+      deviceId,
+      scope: "tracker:telemetry:write",
+    });
+    if (access.error) return sendAccessError(res, access);
+
+    const tracker = access.tracker;
+    const payload = req.body || {};
+    const telemetry = Array.isArray(payload.telemetry) ? payload.telemetry : null;
+
+    if (payload.device_id !== deviceId) {
+      return apiError(res, 400, "DEVICE_ID_MISMATCH", "Payload device_id must match the device_id in the URL.");
+    }
+
+    if (!telemetry || telemetry.length === 0) {
+      return apiError(res, 400, "INVALID_TELEMETRY", "telemetry must be a non-empty array.");
+    }
+
+    const rows = [];
+    let latestBattery = null;
+    let latestSignal = null;
+    let latestTimestamp = null;
+
+    for (const [index, entry] of telemetry.entries()) {
+      const lat = Number(entry?.lat);
+      const lng = Number(entry?.lng);
+      const battery = Number(entry?.battery);
+      const signal = Number(entry?.signal);
+      const timestamp = parseRequiredTimestamp(entry?.timestamp);
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return apiError(res, 400, "INVALID_COORDINATES", `telemetry[${index}] must include numeric lat and lng.`);
+      }
+
+      if (!Number.isFinite(battery)) {
+        return apiError(res, 400, "INVALID_BATTERY", `telemetry[${index}] must include numeric battery.`);
+      }
+
+      if (!Number.isFinite(signal)) {
+        return apiError(res, 400, "INVALID_SIGNAL", `telemetry[${index}] must include numeric signal.`);
+      }
+
+      if (!timestamp) {
+        return apiError(res, 400, "INVALID_TIMESTAMP", `telemetry[${index}] must include a valid ISO-8601 timestamp.`);
+      }
+
+      rows.push({
+        device_id: tracker.device_uid,
+        lat,
+        lng,
+        speed: Number.isFinite(Number(entry?.speed)) ? Number(entry.speed) : 0,
+        battery: Math.round(battery),
+        timestamp,
+      });
+
+      latestBattery = Math.round(battery);
+      latestSignal = Math.round(signal);
+      if (!latestTimestamp || timestamp > latestTimestamp) latestTimestamp = timestamp;
+    }
+
+    await Location.bulkCreate(rows);
+    tracker.battery = latestBattery;
+    tracker.signalStrength = latestSignal;
+    tracker.lastSeen = latestTimestamp;
+    await tracker.save();
+
+    const io = req.app.get("io");
+    if (io) {
+      const location = {
+        event: "location:update",
+        v: 1,
+        ...telemetryResponse({ tracker, loc: rows[rows.length - 1] }),
+      };
+      io.to(tracker.device_uid).emit("location:update", location);
+      io.to("admin").emit("location:update", { location });
+      if (tracker.userId) io.to(`user:${tracker.userId}`).emit("location:update", { location });
+    }
+
+    console.log("Telemetry ingest v1", {
+      device_id: tracker.device_uid,
+      count: rows.length,
+      latency_ms: Date.now() - startedAt,
+    });
+
+    return res.status(201).json({
+      v: 1,
+      device_id: tracker.device_uid,
+      accepted: rows.length,
+      storedTimestamps: rows.map((row) => row.timestamp.toISOString()),
+    });
+  } catch (err) {
+    console.error("ingestTelemetryV1 error:", { device_id: deviceId, error: err.message });
+    return apiError(res, 500, "SERVER_ERROR", "Could not store telemetry right now. Please try again.");
   }
 };
 
