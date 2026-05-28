@@ -6,10 +6,7 @@ function AdminPage() {
   return (
     <div
        style={{
-        backgroundImage: "url('images/bg1.jpg')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
+        background: "#0b4fbd",
         minHeight: "100dvh",
         color: "white",
         display: "flex",
@@ -25,7 +22,7 @@ function AdminPage() {
           fontFamily: "'Playfair Display', serif",
           fontSize: "clamp(1.5rem, 7vw, 2.5rem)",
           marginBottom: "clamp(18px, 5vw, 40px)",
-          textShadow: "2px 2px 4px rgba(0,0,0,0.5)",
+          textShadow: "0 2px 10px rgba(3,7,18,0.25)",
         }}
       >
         Administrator Portal

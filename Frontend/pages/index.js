@@ -5,10 +5,7 @@ function App() {
   return (
     <div
       style={{
-        backgroundImage: "url('images/bg1.jpg')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
+        background: "#0b4fbd",
         minHeight: "100dvh",
         color: "white",
         display: "flex",

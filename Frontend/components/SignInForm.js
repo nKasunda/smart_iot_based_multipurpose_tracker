@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
 import { getRedirectResult, GoogleAuthProvider, signInWithPopup, signInWithRedirect } from "firebase/auth";
-import Link from "next/link";
 import { useRouter } from "next/router";
 import { useAuth } from "../context/AuthContext";
 import { auth as firebaseAuth } from "../Firebase";
 import { friendlyError } from "../lib/errors";
+
+const ADMIN_EMAIL = "kasundanelson@gmail.com";
 
 const GoogleLogo = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -22,6 +23,7 @@ function SignInForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [email, setEmail] = useState("");
+  const [showAdminHint, setShowAdminHint] = useState(false);
   const router = useRouter();
   const appAuth = useAuth();
   const checkedGoogleRedirect = useRef(false);
@@ -59,6 +61,7 @@ function SignInForm() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setShowAdminHint(false);
     const email = e.target.email.value;
     const password = e.target.password.value;
 
@@ -78,6 +81,7 @@ function SignInForm() {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     setError("");
+    setShowAdminHint(false);
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: "select_account" });
@@ -103,13 +107,14 @@ function SignInForm() {
     <form
       onSubmit={handleSubmit}
       style={{
-        backgroundColor: "white",
+        backgroundColor: "rgba(255, 255, 255, 0.96)",
         padding: "clamp(22px, 5vw, 40px)",
-        borderRadius: "15px",
+        borderRadius: "14px",
         width: "min(400px, calc(100vw - 32px))",
         maxWidth: "100%",
-        boxShadow: "0 6px 12px rgba(0,0,0,0.5)",
+        boxShadow: "0 24px 60px rgba(3, 7, 18, 0.28)",
         fontFamily: "'Roboto', sans-serif",
+        border: "1px solid rgba(255,255,255,0.55)",
       }}
     >
       {/* Heading */}
@@ -143,8 +148,8 @@ function SignInForm() {
             {String(error).toLowerCase().includes("verify") ? (
               <div style={{ marginTop: 8, lineHeight: 1.5 }}>
                 Contact the administrator at{" "}
-                <a href="mailto:kasundanelson@gmail.com" style={{ color: "#000080", fontWeight: 800 }}>
-                  kasundanelson@gmail.com
+                <a href={`mailto:${ADMIN_EMAIL}`} style={{ color: "#000080", fontWeight: 800 }}>
+                  {ADMIN_EMAIL}
                 </a>
                 {" "}for account access.
               </div>
@@ -271,20 +276,45 @@ function SignInForm() {
         </div>
       </div>
 
-      {/* Forgot Password Link */}
       <div style={{ textAlign: "right", marginBottom: "clamp(18px, 4vw, 30px)" }}>
-        <Link
-          href="/forgot-password"
+        <button
+          type="button"
+          onClick={() => setShowAdminHint((value) => !value)}
           style={{
             color: "#000080",
-            textDecoration: "none",
+            background: "transparent",
+            border: 0,
+            padding: 0,
             fontSize: "0.9rem",
-            fontWeight: 400,
+            fontWeight: 700,
+            cursor: "pointer",
           }}
         >
           Forgot Password?
-        </Link>
+        </button>
       </div>
+
+      {showAdminHint ? (
+        <div
+          style={{
+            margin: "-12px 0 18px",
+            padding: "10px 12px",
+            borderRadius: 8,
+            background: "#eff6ff",
+            border: "1px solid #bfdbfe",
+            color: "#1e3a8a",
+            fontSize: 13,
+            fontWeight: 600,
+            lineHeight: 1.45,
+          }}
+        >
+          Contact the administrator at{" "}
+          <a href={`mailto:${ADMIN_EMAIL}`} style={{ color: "#000080", fontWeight: 800 }}>
+            {ADMIN_EMAIL}
+          </a>{" "}
+          for password help.
+        </div>
+      ) : null}
 
       {/* 🔹 Updated Sign In Button with Animation + Spinner */}
       <button
@@ -328,13 +358,13 @@ function SignInForm() {
           height: 45px;
           font-size: 15px;
           transition: all 0.3s ease;
-          box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2);
+          box-shadow: 0 10px 18px rgba(0, 0, 128, 0.18);
         }
 
         .sign-in-button:hover {
-          transform: scale(1.05);
-          background-color: #000080;
-          box-shadow: 0 6px 14px rgba(0, 123, 255, 0.4);
+          transform: translateY(-1px);
+          background-color: #00006b;
+          box-shadow: 0 14px 22px rgba(0, 0, 128, 0.24);
         }
 
         .sign-in-button:active {
