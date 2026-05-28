@@ -1,6 +1,9 @@
 'use strict';
 
+const dns = require('dns');
+const net = require('net');
 const nodemailer = require('nodemailer');
+const tls = require('tls');
 
 let transporter;
 
@@ -26,15 +29,64 @@ function smtpPass() {
   return pass;
 }
 
+function smtpForceIPv4() {
+  return envValue('SMTP_FORCE_IPV4').toLowerCase() !== 'false';
+}
+
 function emailEnabled() {
   return !!(smtpHost() && smtpUser() && smtpPass());
+}
+
+function createIPv4Socket(options, callback) {
+  const host = options.host;
+  const port = Number(options.port || 587);
+  const timeout = Number(process.env.SMTP_TIMEOUT_MS || 8000);
+
+  dns.resolve4(host, (resolveErr, addresses) => {
+    if (resolveErr) return callback(resolveErr);
+    const address = addresses?.[0];
+    if (!address) return callback(new Error(`No IPv4 address found for SMTP host ${host}`));
+
+    let done = false;
+    const complete = (err, socketOptions) => {
+      if (done) return;
+      done = true;
+      callback(err, socketOptions);
+    };
+
+    const socketOptions = {
+      host: address,
+      port,
+      servername: host,
+      timeout,
+    };
+    const socket = options.secure
+      ? tls.connect({ ...socketOptions, ...(options.tls || {}) }, () => {
+          socket.removeListener('error', onError);
+          complete(null, { connection: socket, secured: true });
+        })
+      : net.connect(socketOptions, () => {
+          socket.removeListener('error', onError);
+          complete(null, { connection: socket });
+        });
+
+    function onError(err) {
+      complete(err);
+    }
+
+    socket.once('error', onError);
+    socket.once('timeout', () => {
+      socket.destroy();
+      complete(new Error(`SMTP connection timed out for ${host}:${port}`));
+    });
+  });
 }
 
 function getTransporter() {
   if (!emailEnabled()) return null;
   if (transporter) return transporter;
 
-  transporter = nodemailer.createTransport({
+  const transportOptions = {
     host: smtpHost(),
     port: Number(process.env.SMTP_PORT || 587),
     secure: envValue('SMTP_SECURE').toLowerCase() === 'true',
@@ -45,7 +97,13 @@ function getTransporter() {
       user: smtpUser(),
       pass: smtpPass(),
     },
-  });
+  };
+
+  if (smtpForceIPv4()) {
+    transportOptions.getSocket = createIPv4Socket;
+  }
+
+  transporter = nodemailer.createTransport(transportOptions);
 
   return transporter;
 }
