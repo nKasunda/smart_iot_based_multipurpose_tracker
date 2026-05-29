@@ -20,6 +20,12 @@ const isTrackerOnline = (lastSeen, now = Date.now()) => {
   return Number.isFinite(time) && now - time < TRACKER_ONLINE_WINDOW_MS;
 };
 
+const isValidGpsCoordinate = (lat, lng) => {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return false;
+  return !(Math.abs(lat) < 0.000001 && Math.abs(lng) < 0.000001);
+};
+
 const isHosted = process.env.RENDER || process.env.NODE_ENV === "production";
 const hasDatabaseConfig =
   !!process.env.DATABASE_URL ||
@@ -106,13 +112,15 @@ io.on("connection", async (socket) => {
 
   try {
     const tracker = await Tracker.findOne({ where: { device_uid: deviceId } });
-    const loc = tracker
-      ? await Location.findOne({
+    const rows = tracker
+      ? await Location.findAll({
           where: { device_id: tracker.device_uid },
           attributes: ["device_id", "lat", "lng", "speed", "battery", "timestamp"],
           order: [["timestamp", "DESC"]],
+          limit: 50,
         })
-      : null;
+      : [];
+    const loc = rows.find((row) => isValidGpsCoordinate(Number(row.lat), Number(row.lng))) || null;
 
     if (!tracker || !loc) return;
     const online = isTrackerOnline(tracker.lastSeen);

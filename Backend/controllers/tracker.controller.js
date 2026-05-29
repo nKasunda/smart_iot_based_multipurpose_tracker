@@ -151,6 +151,12 @@ const isTrackerOnline = (lastSeen, now = Date.now()) => {
   return Number.isFinite(time) && now - time < TRACKER_ONLINE_WINDOW_MS;
 };
 
+const isValidGpsCoordinate = (lat, lng) => {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return false;
+  return !(Math.abs(lat) < 0.000001 && Math.abs(lng) < 0.000001);
+};
+
 const liveMetrics = (tracker, now = Date.now()) => {
   const online = isTrackerOnline(tracker?.lastSeen, now);
   return {
@@ -474,6 +480,18 @@ exports.ingestSMS = async (req, res) => {
     }
     const speed = extractNumber(parsed, ["speed"], /\b(?:SPEED|SPD)\s*[:=]\s*(-?\d+(?:\.\d+)?)/i);
 
+    if (!isValidGpsCoordinate(lat, lng)) {
+      tracker.lastSeen = ts;
+      await tracker.save();
+      console.warn("Ignored invalid GPS coordinate", {
+        device_uid: tracker.device_uid,
+        imei: tracker.imei,
+        lat,
+        lng,
+      });
+      return res.status(202).json({ message: "Invalid GPS coordinate ignored" });
+    }
+
     // FIXED: correct column mapping (IMPORTANT FIX)
     await Location.create({
       device_id: tracker.device_uid,
@@ -569,6 +587,7 @@ exports.latest = async (req, res) => {
     const latestByTracker = new Map();
 
     for (const loc of locations) {
+      if (!isValidGpsCoordinate(Number(loc.lat), Number(loc.lng))) continue;
       if (!latestByTracker.has(loc.device_id)) {
         latestByTracker.set(loc.device_id, loc);
       }
@@ -934,11 +953,13 @@ exports.developerLatest = async (req, res) => {
     if (access.error) return sendAccessError(res, access);
 
     const tracker = access.tracker;
-    const loc = await Location.findOne({
+    const rows = await Location.findAll({
       where: { device_id: tracker.device_uid },
       attributes: ["device_id", "lat", "lng", "speed", "battery", "timestamp"],
       order: [["timestamp", "DESC"]],
+      limit: 50,
     });
+    const loc = rows.find((row) => isValidGpsCoordinate(Number(row.lat), Number(row.lng))) || null;
 
     return res.json({
       v: 1,

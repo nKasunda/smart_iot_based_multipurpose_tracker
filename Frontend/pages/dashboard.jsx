@@ -29,14 +29,19 @@ const sectionComponents = {
   History,
 };
 
-const DASHBOARD_SECTION_KEY = "dashboard.activeSection";
 const LIVE_PATH_TTL_MS = 2 * 60 * 1000;
 const LIVE_PATH_MAX_POINTS = 5000;
+
+function isValidGpsCoordinate(lat, lng) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return false;
+  return !(Math.abs(lat) < 0.000001 && Math.abs(lng) < 0.000001);
+}
 
 function pointFromLocation(location) {
   const lat = Number(location?.lat);
   const lng = Number(location?.lng);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (!isValidGpsCoordinate(lat, lng)) return null;
 
   const timestamp = location?.timestamp || location?.lastSeen || location?.last_seen || new Date().toISOString();
   const time = new Date(timestamp).getTime();
@@ -67,14 +72,7 @@ export default function DashboardPage() {
 
   const [menuOpen,         setMenuOpen]         = useState(true);
   const [profileOpen,      setProfileOpen]      = useState(false);
-  const [activeSection,    setActiveSection]    = useState(() => {
-    if (typeof window === "undefined") return "Overview";
-    try {
-      return localStorage.getItem(DASHBOARD_SECTION_KEY) || "Overview";
-    } catch {
-      return "Overview";
-    }
-  });
+  const [activeSection,    setActiveSection]    = useState("Overview");
 
   const [devices,          setDevices]          = useState([]);
   const [latest,           setLatest]           = useState([]);
@@ -176,12 +174,6 @@ export default function DashboardPage() {
     const poorSignal = alerts?.poorSignalDevices?.length || 0;
     return low + inactive + poorSignal;
   }, [alerts]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(DASHBOARD_SECTION_KEY, activeSection);
-    } catch { /* ignore */ }
-  }, [activeSection]);
 
   useEffect(() => {
     const list = filteredDevices || [];

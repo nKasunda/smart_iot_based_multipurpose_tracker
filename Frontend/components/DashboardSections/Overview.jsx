@@ -4,6 +4,7 @@ import { FiBox, FiCheckCircle, FiAlertTriangle, FiTrendingUp, FiBell } from "rea
 import { formatDateTime, useSettings } from "../../context/SettingsContext";
 
 const TrackerLeafletMap = dynamic(() => import("../TrackerLeafletMap"), { ssr: false });
+const NULL_DISPLAY = "null";
 
 export default function Overview({
   devices,
@@ -78,7 +79,7 @@ export default function Overview({
     if (t === "low_battery") return "Low battery";
     if (t === "inactive") return "Inactive";
     if (t === "poor_signal") return "Poor signal";
-    return String(t || "Unknown");
+    return String(t || NULL_DISPLAY);
   };
 
   const typeColor = (t) => {
@@ -96,7 +97,7 @@ export default function Overview({
       bgColor: "#2563eb",
     },
     {
-      label: "Total Locations",
+      label: "Location Points",
       value: stats?.totalLocations ?? 0,
       icon: <FiTrendingUp size={28} color="#ffffff" />,
       bgColor: "#0891b2",
@@ -140,7 +141,7 @@ export default function Overview({
               background:
                 stat.label === "Total Devices"
                   ? "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)"
-                  : stat.label === "Total Locations"
+                  : stat.label === "Location Points"
                   ? "linear-gradient(135deg, #0891b2 0%, #0e7490 100%)"
                   : stat.label === "Active Now"
                   ? "linear-gradient(135deg, #16a34a 0%, #15803d 100%)"
@@ -284,12 +285,12 @@ export default function Overview({
                     </span>
                     <span style={{ color: "#64748b", fontSize: 12 }}>
                       {a.type === "low_battery"
-                        ? `Battery: ${a.battery ?? "—"}%`
+                        ? `Battery: ${a.battery === null || a.battery === undefined ? NULL_DISPLAY : `${a.battery}%`}`
                         : a.type === "poor_signal"
-                          ? `Signal: ${a.signalStrength ?? "—"}`
+                          ? `Signal: ${a.signalStrength ?? NULL_DISPLAY}`
                         : a.receivedAt || a.createdAt || a.lastSeen
                           ? formatDateTime(a.receivedAt || a.createdAt || a.lastSeen, dateFormat, clockFormat)
-                          : "—"}
+                          : NULL_DISPLAY}
                     </span>
                   </div>
                 </div>

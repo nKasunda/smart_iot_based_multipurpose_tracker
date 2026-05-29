@@ -2,6 +2,8 @@ import React from "react";
 import { FiRefreshCcw } from "react-icons/fi";
 import { formatDateTime, useSettings } from "../../context/SettingsContext";
 
+const NULL_DISPLAY = "null";
+
 export default function Alerts({ alerts, onRefresh }) {
   const { dateFormat, clockFormat } = useSettings();
   const low = alerts?.lowBatteryDevices || [];
@@ -43,7 +45,7 @@ export default function Alerts({ alerts, onRefresh }) {
     if (t === "low_battery") return "Low battery";
     if (t === "inactive") return "Inactive";
     if (t === "poor_signal") return "Poor signal";
-    return String(t || "Unknown");
+    return String(t || NULL_DISPLAY);
   };
 
   const typeColor = (t) => {
@@ -152,7 +154,7 @@ export default function Alerts({ alerts, onRefresh }) {
                   fontSize: 12,
                 }}
               >
-                <span style={{ fontWeight: 900, color: "#0f172a" }}>{a.device_uid || "—"}</span>
+                <span style={{ fontWeight: 900, color: "#0f172a" }}>{a.device_uid || NULL_DISPLAY}</span>
                 <span
                   style={{
                     color: "#0f172a",
@@ -165,7 +167,7 @@ export default function Alerts({ alerts, onRefresh }) {
                   }}
                   title={a.imei || ""}
                 >
-                  {a.imei || "—"}
+                  {a.imei || NULL_DISPLAY}
                 </span>
                 <span
                   style={{
@@ -185,12 +187,16 @@ export default function Alerts({ alerts, onRefresh }) {
                   {typeLabel(a.type)}
                 </span>
                 <span style={{ fontWeight: 800 }}>
-                  {a.type === "poor_signal" ? a.signalStrength ?? "—" : `${a.battery ?? "—"}%`}
+                  {a.type === "poor_signal"
+                    ? a.signalStrength ?? NULL_DISPLAY
+                    : a.battery === null || a.battery === undefined
+                      ? NULL_DISPLAY
+                      : `${a.battery}%`}
                 </span>
                 <span style={{ color: "#64748b", fontSize: 11 }}>
                   {a.receivedAt || a.createdAt || a.lastSeen
                     ? formatDateTime(a.receivedAt || a.createdAt || a.lastSeen, dateFormat, clockFormat)
-                    : "—"}
+                    : NULL_DISPLAY}
                 </span>
               </div>
             );

@@ -7,6 +7,8 @@ import { getDeviceIntegration } from "../../lib/api";
 import { friendlyError } from "../../lib/errors";
 import { formatDateTime, useSettings } from "../../context/SettingsContext";
 
+const NULL_DISPLAY = "null";
+
 function isOnline(lastSeen) {
   if (!lastSeen) return false;
   const t = new Date(lastSeen).getTime();
@@ -620,7 +622,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
                   />
                 ) : (
                   <strong style={{ color: "var(--text)" }}>
-                    {isAdmin ? (d.device_uid || "null") : (d.name || d.device_uid || "null")}
+                    {isAdmin ? (d.device_uid || NULL_DISPLAY) : (d.name || d.device_uid || NULL_DISPLAY)}
                   </strong>
                 )}
 
@@ -647,7 +649,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
                     }}
                     title={d.imei || ""}
                   >
-                    {d.imei || "—"}
+                    {d.imei || NULL_DISPLAY}
                   </span>
                 )}
                 
@@ -675,7 +677,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
                       {d.user ? "Claimed" : "Unclaimed"}
                     </span>
 
-                    {/* Owner: User name/email or dash */}
+                    {/* Owner: User name/email or null */}
                     <span style={{ color: "var(--muted)", fontSize: 10 }}>
                       {isEditing ? (
                         <input
@@ -691,17 +693,19 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
                         />
                       ) : d.user ? (
                         <div>
-                          <div style={{ fontWeight: 600 }}>{d.user.name || "null"}</div>
-                          <div style={{ color: "var(--muted)" }}>{d.user.email || "null"}</div>
+                          <div style={{ fontWeight: 600 }}>{d.user.name || NULL_DISPLAY}</div>
+                          <div style={{ color: "var(--muted)" }}>{d.user.email || NULL_DISPLAY}</div>
                         </div>
                       ) : (
-                        "—"
+                        NULL_DISPLAY
                       )}
                     </span>
                   </>
                 )}
 
-                <span style={{ fontWeight: 700 }}>{d.battery ?? "—"}%</span>
+                <span style={{ fontWeight: 700 }}>
+                  {d.battery === null || d.battery === undefined ? NULL_DISPLAY : `${d.battery}%`}
+                </span>
                 <div
                   style={{
                     width: 12,
@@ -715,7 +719,7 @@ export default function Devices({ user, devices, selectedDeviceId, setSelectedDe
                   title={online ? "Online" : "Offline"}
                 />
                 <span style={{ color: "var(--muted)", fontSize: 10 }}>
-                  {d.lastSeen ? formatDateTime(d.lastSeen, dateFormat, clockFormat) : "null"}
+                  {d.lastSeen ? formatDateTime(d.lastSeen, dateFormat, clockFormat) : NULL_DISPLAY}
                 </span>
                 <div
                   style={{

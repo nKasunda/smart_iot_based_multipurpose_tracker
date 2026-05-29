@@ -10,6 +10,8 @@ import {
   FiSettings,
 } from "react-icons/fi";
 
+const NULL_DISPLAY = "null";
+
 function SideMenu({ isOpen, toggle, activeItem, onSelect, stats }) {
   const warningCount = stats?.warningCount || 0;
   const socketConnected = !!stats?.socketConnected;
@@ -131,7 +133,7 @@ function SideMenu({ isOpen, toggle, activeItem, onSelect, stats }) {
 
           <div style={statusItemStyle}>
             <span style={labelStyle}>Total Devices</span>
-            <strong style={valueStyle}>{stats?.totalDevices ?? "—"}</strong>
+            <strong style={valueStyle}>{stats?.totalDevices ?? NULL_DISPLAY}</strong>
           </div>
 
           <div style={statusItemStyle}>
@@ -143,7 +145,7 @@ function SideMenu({ isOpen, toggle, activeItem, onSelect, stats }) {
 
           <div style={statusItemStyle}>
             <span style={labelStyle}>Active Now</span>
-            <strong style={valueStyle}>{stats?.activeNow ?? "—"}</strong>
+            <strong style={valueStyle}>{stats?.activeNow ?? NULL_DISPLAY}</strong>
           </div>
         </div>
       )}

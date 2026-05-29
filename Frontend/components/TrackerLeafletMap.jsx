@@ -27,6 +27,7 @@ const MAP_LAYERS = [
     maxZoom: 19,
   },
 ];
+const NULL_DISPLAY = "null";
 
 function FlyTo({ center }) {
   const map = useMap();
@@ -34,6 +35,48 @@ function FlyTo({ center }) {
     if (!center || !Number.isFinite(center[0]) || !Number.isFinite(center[1])) return;
     map.panTo(center, { animate: true, duration: 0.75, easeLinearity: 0.25 });
   }, [center, map]);
+  return null;
+}
+
+function isValidGpsCoordinate(lat, lng) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return false;
+  return !(Math.abs(lat) < 0.000001 && Math.abs(lng) < 0.000001);
+}
+
+function AutoFitVisibleMarkers({ entries }) {
+  const map = useMap();
+
+  const signature = useMemo(
+    () => (entries || []).map(([deviceId, loc]) => `${deviceId}:${loc.lat},${loc.lng}`).join("|"),
+    [entries]
+  );
+
+  useEffect(() => {
+    const points = (entries || [])
+      .map(([, loc]) => [Number(loc.lat), Number(loc.lng)])
+      .filter(([lat, lng]) => isValidGpsCoordinate(lat, lng));
+
+    if (!points.length) return;
+
+    const currentBounds = map.getBounds();
+    const allVisible = points.every((point) => currentBounds.contains(point));
+    if (allVisible) return;
+
+    map.invalidateSize();
+
+    if (points.length === 1) {
+      map.setView(points[0], Math.max(map.getZoom(), 15), { animate: true });
+      return;
+    }
+
+    map.fitBounds(L.latLngBounds(points), {
+      padding: [48, 48],
+      maxZoom: 16,
+      animate: true,
+    });
+  }, [map, signature, entries]);
+
   return null;
 }
 
@@ -63,7 +106,9 @@ function FitAllControl({ entries }) {
   const fitAll = () => {
     map.invalidateSize();
 
-    const points = (entries || []).map(([, loc]) => [loc.lat, loc.lng]);
+    const points = (entries || [])
+      .map(([, loc]) => [Number(loc.lat), Number(loc.lng)])
+      .filter(([lat, lng]) => isValidGpsCoordinate(lat, lng));
     if (points.length >= 2) {
       map.fitBounds(L.latLngBounds(points), {
         padding: [42, 42],
@@ -111,7 +156,7 @@ function getSignalInfo(signalStrength) {
         : Number(signalStrength);
 
   if (!Number.isFinite(value) || value < 0) {
-    return { value: null, label: "—", quality: "Unknown", color: "#64748b" };
+    return { value: null, label: NULL_DISPLAY, quality: "", color: "#64748b" };
   }
 
   if (value >= 20) return { value, label: String(value), quality: "Good", color: "#16a34a" };
@@ -198,7 +243,7 @@ export default function TrackerLeafletMap({
   const { dateFormat, clockFormat, mapStyle, save } = useSettings();
   const allEntries = useMemo(() => Object.entries(latestByDevice || {}), [latestByDevice]);
   const entries = useMemo(
-    () => allEntries.filter(([, loc]) => Number.isFinite(loc?.lat) && Number.isFinite(loc?.lng)),
+    () => allEntries.filter(([, loc]) => isValidGpsCoordinate(Number(loc?.lat), Number(loc?.lng))),
     [allEntries]
   );
   const selected = selectedDeviceId ? latestByDevice?.[selectedDeviceId] : null;
@@ -206,11 +251,11 @@ export default function TrackerLeafletMap({
   const livePath = useMemo(
     () =>
       Array.isArray(selectedPath)
-        ? selectedPath.filter((p) => Number.isFinite(p?.lat) && Number.isFinite(p?.lng))
+        ? selectedPath.filter((p) => isValidGpsCoordinate(Number(p?.lat), Number(p?.lng)))
         : [],
     [selectedPath]
   );
-  const livePathPositions = useMemo(() => livePath.map((p) => [p.lat, p.lng]), [livePath]);
+  const livePathPositions = useMemo(() => livePath.map((p) => [Number(p.lat), Number(p.lng)]), [livePath]);
   const livePathBearing = useMemo(() => {
     if (livePath.length < 2) return 0;
     return getBearing(livePath[livePath.length - 2], livePath[livePath.length - 1]);
@@ -243,7 +288,9 @@ export default function TrackerLeafletMap({
 
         if (!isOnline) return null;
 
-        const positions = path.filter((p) => Number.isFinite(p?.lat) && Number.isFinite(p?.lng)).map((p) => [p.lat, p.lng]);
+        const positions = path
+          .filter((p) => isValidGpsCoordinate(Number(p?.lat), Number(p?.lng)))
+          .map((p) => [Number(p.lat), Number(p.lng)]);
         if (positions.length < 2) return null;
 
         return {
@@ -262,10 +309,10 @@ export default function TrackerLeafletMap({
   );
 
 
-  const validCenter = selected && Number.isFinite(selected.lat) && Number.isFinite(selected.lng)
-    ? [selected.lat, selected.lng]
+  const validCenter = selected && isValidGpsCoordinate(Number(selected.lat), Number(selected.lng))
+    ? [Number(selected.lat), Number(selected.lng)]
     : entries[0]
-      ? [entries[0][1].lat, entries[0][1].lng]
+      ? [Number(entries[0][1].lat), Number(entries[0][1].lng)]
       : null;
 
   return (
@@ -283,6 +330,7 @@ export default function TrackerLeafletMap({
       />
 
       <FlyTo center={validCenter} />
+      <AutoFitVisibleMarkers entries={entries} />
       <MapStyleControl mapStyle={mapStyle} onChange={(nextStyle) => save({ mapStyle: nextStyle })} />
       <FitAllControl entries={entries} />
 
@@ -428,7 +476,7 @@ export default function TrackerLeafletMap({
       ) : null}
 
       {entries.map(([deviceId, loc]) => {
-        if (!Number.isFinite(loc?.lat) || !Number.isFinite(loc?.lng)) return null;
+        if (!isValidGpsCoordinate(Number(loc?.lat), Number(loc?.lng))) return null;
         const selectedMarker = deviceId === selectedDeviceId;
         const online = isOnlineFromTimestamp(loc?.timestamp || loc?.lastSeen || loc?.last_seen);
         const liveBattery = online ? loc.battery : null;
@@ -502,7 +550,7 @@ export default function TrackerLeafletMap({
                           color: batteryColor || "#9ca3af",
                         }}
                       >
-                        {liveBattery ?? "—"}%
+                        {liveBattery === null || liveBattery === undefined ? NULL_DISPLAY : `${liveBattery}%`}
                       </span>
                     </div>
                   ) : null}
