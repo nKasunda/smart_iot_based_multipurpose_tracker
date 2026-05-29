@@ -88,7 +88,7 @@ String buildMessage() {
   if (batteryLevel == -1) {
     msg += "\"battery\":null,";
   } else {
-    msg += "\"battery\":" + String(batteryLevel) + ",";
+    msg += "\"battery\":" + String(int(batteryLevel)) + ",";
   }
 
   msg += "\"signal\":" + String(signalLevel);

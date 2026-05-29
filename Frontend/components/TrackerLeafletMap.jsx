@@ -33,7 +33,8 @@ function FlyTo({ center }) {
   const map = useMap();
   useEffect(() => {
     if (!center || !Number.isFinite(center[0]) || !Number.isFinite(center[1])) return;
-    map.panTo(center, { animate: true, duration: 0.75, easeLinearity: 0.25 });
+    if (map.getBounds().contains(center)) return;
+    map.panTo(center, { animate: true, duration: 0.65, easeLinearity: 0.25 });
   }, [center, map]);
   return null;
 }
