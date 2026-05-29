@@ -28,14 +28,15 @@ const MAP_LAYERS = [
   },
 ];
 const NULL_DISPLAY = "null";
+const ACTIVE_FOCUS_ZOOM = 16;
 
-function FlyTo({ center }) {
+function FollowActiveMarker({ center, resizeTick }) {
   const map = useMap();
   useEffect(() => {
     if (!center || !Number.isFinite(center[0]) || !Number.isFinite(center[1])) return;
     if (map.getBounds().contains(center)) return;
     map.panTo(center, { animate: true, duration: 0.65, easeLinearity: 0.25 });
-  }, [center, map]);
+  }, [center, map, resizeTick]);
   return null;
 }
 
@@ -43,42 +44,6 @@ function isValidGpsCoordinate(lat, lng) {
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return false;
   return !(Math.abs(lat) < 0.000001 && Math.abs(lng) < 0.000001);
-}
-
-function AutoFitVisibleMarkers({ entries, resizeTick }) {
-  const map = useMap();
-
-  const signature = useMemo(
-    () => (entries || []).map(([deviceId, loc]) => `${deviceId}:${loc.lat},${loc.lng}`).join("|"),
-    [entries]
-  );
-
-  useEffect(() => {
-    const points = (entries || [])
-      .map(([, loc]) => [Number(loc.lat), Number(loc.lng)])
-      .filter(([lat, lng]) => isValidGpsCoordinate(lat, lng));
-
-    if (!points.length) return;
-
-    const currentBounds = map.getBounds();
-    const allVisible = points.every((point) => currentBounds.contains(point));
-    if (allVisible) return;
-
-    map.invalidateSize();
-
-    if (points.length === 1) {
-      map.setView(points[0], Math.max(map.getZoom(), 15), { animate: true });
-      return;
-    }
-
-    map.fitBounds(L.latLngBounds(points), {
-      padding: [48, 48],
-      maxZoom: 16,
-      animate: true,
-    });
-  }, [map, signature, entries, resizeTick]);
-
-  return null;
 }
 
 function ResizeMapToContainer({ onResize }) {
@@ -153,7 +118,7 @@ function FitAllControl({ entries }) {
     }
 
     if (points.length === 1) {
-      map.setView(points[0], 15, { animate: true });
+      map.setView(points[0], ACTIVE_FOCUS_ZOOM, { animate: true });
       return;
     }
   };
@@ -361,7 +326,7 @@ export default function TrackerLeafletMap({
   return (
     <MapContainer
       center={validCenter || [-13.9626, 33.7741]}
-      zoom={14}
+      zoom={ACTIVE_FOCUS_ZOOM}
       style={{ width: "100%", height: "100%", borderRadius: 16 }}
       scrollWheelZoom
     >
@@ -373,8 +338,7 @@ export default function TrackerLeafletMap({
       />
 
       <ResizeMapToContainer onResize={handleMapResize} />
-      <FlyTo center={validCenter} />
-      <AutoFitVisibleMarkers entries={activeEntries} resizeTick={mapSizeTick} />
+      <FollowActiveMarker center={validCenter} resizeTick={mapSizeTick} />
       <MapStyleControl mapStyle={mapStyle} onChange={(nextStyle) => save({ mapStyle: nextStyle })} />
       <FitAllControl entries={activeEntries} />
 
