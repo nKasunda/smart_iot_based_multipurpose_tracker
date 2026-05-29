@@ -156,8 +156,6 @@ function FitAllControl({ entries }) {
       map.setView(points[0], 15, { animate: true });
       return;
     }
-
-    map.setView([-13.9626, 33.7741], 6, { animate: true });
   };
 
   useEffect(() => {
@@ -167,7 +165,7 @@ function FitAllControl({ entries }) {
 
   return (
     <div className="leaflet-top leaflet-right tracker-map-fit-control">
-      <button type="button" onClick={fitAll} title="Show all markers" aria-label="Show all markers">
+      <button type="button" onClick={fitAll} title="Show active markers" aria-label="Show active markers">
         <FiMaximize2 size={16} />
       </button>
     </div>
@@ -179,6 +177,11 @@ function isOnlineFromTimestamp(ts) {
   const t = new Date(ts).getTime();
   if (!Number.isFinite(t)) return false;
   return Date.now() - t < 2 * 60 * 1000;
+}
+
+function isActiveLocation(loc) {
+  return isValidGpsCoordinate(Number(loc?.lat), Number(loc?.lng)) &&
+    isOnlineFromTimestamp(loc?.timestamp || loc?.lastSeen || loc?.last_seen);
 }
 
 function getSignalInfo(signalStrength) {
@@ -282,6 +285,10 @@ export default function TrackerLeafletMap({
     () => allEntries.filter(([, loc]) => isValidGpsCoordinate(Number(loc?.lat), Number(loc?.lng))),
     [allEntries]
   );
+  const activeEntries = useMemo(
+    () => entries.filter(([, loc]) => isActiveLocation(loc)),
+    [entries]
+  );
   const selected = selectedDeviceId ? latestByDevice?.[selectedDeviceId] : null;
   const [pathHoverLatLng, setPathHoverLatLng] = useState(null);
   const livePath = useMemo(
@@ -345,10 +352,10 @@ export default function TrackerLeafletMap({
   );
 
 
-  const validCenter = selected && isValidGpsCoordinate(Number(selected.lat), Number(selected.lng))
+  const validCenter = selected && isActiveLocation(selected)
     ? [Number(selected.lat), Number(selected.lng)]
-    : entries[0]
-      ? [Number(entries[0][1].lat), Number(entries[0][1].lng)]
+    : activeEntries[0]
+      ? [Number(activeEntries[0][1].lat), Number(activeEntries[0][1].lng)]
       : null;
 
   return (
@@ -367,9 +374,9 @@ export default function TrackerLeafletMap({
 
       <ResizeMapToContainer onResize={handleMapResize} />
       <FlyTo center={validCenter} />
-      <AutoFitVisibleMarkers entries={entries} resizeTick={mapSizeTick} />
+      <AutoFitVisibleMarkers entries={activeEntries} resizeTick={mapSizeTick} />
       <MapStyleControl mapStyle={mapStyle} onChange={(nextStyle) => save({ mapStyle: nextStyle })} />
-      <FitAllControl entries={entries} />
+      <FitAllControl entries={activeEntries} />
 
       {/* Render paths for all online devices */}
       {allDevicePaths.map(({ deviceId, positions, isSelected, routeColor }) => {
