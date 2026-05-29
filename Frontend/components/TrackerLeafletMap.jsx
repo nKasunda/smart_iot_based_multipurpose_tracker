@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip, useMap } from "react-leaflet";
 import { FiMaximize2 } from "react-icons/fi";
 import L from "leaflet";
@@ -45,7 +45,7 @@ function isValidGpsCoordinate(lat, lng) {
   return !(Math.abs(lat) < 0.000001 && Math.abs(lng) < 0.000001);
 }
 
-function AutoFitVisibleMarkers({ entries }) {
+function AutoFitVisibleMarkers({ entries, resizeTick }) {
   const map = useMap();
 
   const signature = useMemo(
@@ -76,7 +76,40 @@ function AutoFitVisibleMarkers({ entries }) {
       maxZoom: 16,
       animate: true,
     });
-  }, [map, signature, entries]);
+  }, [map, signature, entries, resizeTick]);
+
+  return null;
+}
+
+function ResizeMapToContainer({ onResize }) {
+  const map = useMap();
+  const frameRef = useRef(null);
+
+  useEffect(() => {
+    const container = map.getContainer();
+    if (!container || typeof ResizeObserver === "undefined") {
+      map.invalidateSize({ pan: false, animate: false });
+      return undefined;
+    }
+
+    const resize = () => {
+      if (frameRef.current) window.cancelAnimationFrame(frameRef.current);
+      frameRef.current = window.requestAnimationFrame(() => {
+        map.invalidateSize({ pan: false, animate: false });
+        onResize?.();
+      });
+    };
+
+    const observer = new ResizeObserver(resize);
+    observer.observe(container);
+    if (container.parentElement) observer.observe(container.parentElement);
+    resize();
+
+    return () => {
+      if (frameRef.current) window.cancelAnimationFrame(frameRef.current);
+      observer.disconnect();
+    };
+  }, [map, onResize]);
 
   return null;
 }
@@ -242,6 +275,8 @@ export default function TrackerLeafletMap({
   livePaths,
 }) {
   const { dateFormat, clockFormat, mapStyle, save } = useSettings();
+  const [mapSizeTick, setMapSizeTick] = useState(0);
+  const handleMapResize = useCallback(() => setMapSizeTick((tick) => tick + 1), []);
   const allEntries = useMemo(() => Object.entries(latestByDevice || {}), [latestByDevice]);
   const entries = useMemo(
     () => allEntries.filter(([, loc]) => isValidGpsCoordinate(Number(loc?.lat), Number(loc?.lng))),
@@ -330,8 +365,9 @@ export default function TrackerLeafletMap({
         maxZoom={activeLayer.maxZoom}
       />
 
+      <ResizeMapToContainer onResize={handleMapResize} />
       <FlyTo center={validCenter} />
-      <AutoFitVisibleMarkers entries={entries} />
+      <AutoFitVisibleMarkers entries={entries} resizeTick={mapSizeTick} />
       <MapStyleControl mapStyle={mapStyle} onChange={(nextStyle) => save({ mapStyle: nextStyle })} />
       <FitAllControl entries={entries} />
 
